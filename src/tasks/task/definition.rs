@@ -1,6 +1,6 @@
 use uuid::Uuid;
 
-use crate::{logstrategy::LogStrategyType, taskrunnable::TaskRunnable};
+use crate::tasks::{logstrategy::LogStrategyType, taskrunnable::TaskRunnable};
 
 pub type Runnable = Box<dyn TaskRunnable + Sync + Send>;
 

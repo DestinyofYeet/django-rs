@@ -1,6 +1,6 @@
 use tracing::{error, info, warn};
 
-use crate::logstrategy::LogStrategy;
+use crate::tasks::logstrategy::LogStrategy;
 
 pub struct TracingStrategy {}
 

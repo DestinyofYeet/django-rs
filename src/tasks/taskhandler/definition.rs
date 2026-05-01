@@ -9,9 +9,9 @@ use thiserror::Error;
 use tracing::{error, warn};
 
 use crate::{
-    logstrategy::{LogStrategy, LogStrategyType},
-    task::{Runnable, Task},
-    worker::{Worker, WorkerError},
+    tasks::logstrategy::{LogStrategy, LogStrategyType},
+    tasks::task::{Runnable, Task},
+    tasks::worker::{Worker, WorkerError},
 };
 
 #[derive(Error, Debug)]

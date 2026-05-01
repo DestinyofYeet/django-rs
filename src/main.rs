@@ -1,12 +1,11 @@
 use clap::Parser;
-use std::{thread, time::Duration};
-use tracing_subscriber::EnvFilter;
-
-use django_rs::{
+use django_rs::tasks::{
     logstrategy::{LogStrategyType, default_strategies::tracing_strategy::TracingStrategy},
     taskhandler::TaskHandler,
     taskrunnable::TaskRunnable,
 };
+use std::{thread, time::Duration};
+use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
 pub struct Args {

@@ -9,7 +9,7 @@ use std::{
 
 use tracing::trace;
 
-use crate::{task::Task, worker::WorkerError};
+use crate::tasks::{task::Task, worker::WorkerError};
 
 pub enum WorkerCommand {
     ProcessTask(Task),
