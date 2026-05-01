@@ -1,7 +1,5 @@
-use std::sync::Arc;
-
-use crate::logstrategy::LogStrategy;
+use crate::logstrategy::LogStrategyType;
 
 pub trait TaskRunnable {
-    fn run(&mut self, logger: Arc<dyn LogStrategy>, worker_id: u64);
+    fn run(&mut self, logger: LogStrategyType, worker_id: u64);
 }

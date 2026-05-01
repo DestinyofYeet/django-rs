@@ -50,8 +50,6 @@ fn main() -> Result<(), anyhow::Error> {
         handler.create_task(PrintTask::new());
     }
 
-    thread::sleep(Duration::from_secs(10));
-    println!("Active: {}", handler.get_active_workers());
     handler.shutdown()?;
 
     Ok(())

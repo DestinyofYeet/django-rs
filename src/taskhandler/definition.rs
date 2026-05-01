@@ -117,6 +117,17 @@ where
     }
 
     pub fn shutdown(self) -> Result<(), TaskError> {
+        loop {
+            let queue = self.queue.lock().expect("to get lock");
+
+            if queue.is_empty() {
+                break;
+            }
+
+            drop(queue);
+            thread::sleep(Duration::from_millis(500));
+        }
+
         let workers = self.workers.lock().expect("to get lock");
 
         for worker in workers.iter() {
