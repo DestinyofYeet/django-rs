@@ -9,33 +9,24 @@ use std::{
 
 use tracing::trace;
 
-use crate::{logstrategy::LogStrategy, task::Task, worker::WorkerError};
+use crate::{task::Task, worker::WorkerError};
 
-pub enum WorkerCommand<T>
-where
-    T: LogStrategy,
-{
-    ProcessTask(Task<T>),
+pub enum WorkerCommand {
+    ProcessTask(Task),
     Init,
     Close,
 }
 
-pub struct Worker<T>
-where
-    T: LogStrategy,
-{
+pub struct Worker {
     id: u64,
     handle: RefCell<Option<JoinHandle<()>>>,
-    to_thread: Sender<WorkerCommand<T>>,
+    to_thread: Sender<WorkerCommand>,
     has_task: Arc<Mutex<bool>>,
 }
 
-impl<T> Worker<T>
-where
-    T: LogStrategy + Send + Sync + 'static,
-{
+impl Worker {
     pub fn new(id: u64) -> Result<Self, WorkerError> {
-        let (tx, rx): (Sender<WorkerCommand<T>>, Receiver<WorkerCommand<T>>) = mpsc::channel();
+        let (tx, rx): (Sender<WorkerCommand>, Receiver<WorkerCommand>) = mpsc::channel();
 
         tx.send(WorkerCommand::Init)
             .map_err(|e| WorkerError::Channel(e.to_string()))?;
@@ -81,13 +72,13 @@ where
         })
     }
 
-    fn send_msg(&self, command: WorkerCommand<T>) -> Result<(), WorkerError> {
+    fn send_msg(&self, command: WorkerCommand) -> Result<(), WorkerError> {
         self.to_thread
             .send(command)
             .map_err(|e| WorkerError::Channel(e.to_string()))
     }
 
-    pub fn schedule_task(&self, task: Task<T>) -> Result<(), WorkerError> {
+    pub fn schedule_task(&self, task: Task) -> Result<(), WorkerError> {
         self.send_msg(WorkerCommand::ProcessTask(task))
     }
 

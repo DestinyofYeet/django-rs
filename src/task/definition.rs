@@ -1,25 +1,17 @@
-use std::sync::Arc;
-
 use uuid::Uuid;
 
-use crate::{logstrategy::LogStrategy, taskrunnable::TaskRunnable};
+use crate::{logstrategy::LogStrategyType, taskrunnable::TaskRunnable};
 
 pub type Runnable = Box<dyn TaskRunnable + Sync + Send>;
 
-pub struct Task<T>
-where
-    T: LogStrategy,
-{
+pub struct Task {
     id: Uuid,
     runnable: Runnable,
-    logger: Arc<T>,
+    logger: LogStrategyType,
 }
 
-impl<T> Task<T>
-where
-    T: LogStrategy + 'static,
-{
-    pub fn new(runnable: Runnable, logger: Arc<T>) -> Self {
+impl Task {
+    pub fn new(runnable: Runnable, logger: LogStrategyType) -> Self {
         Self {
             id: Uuid::new_v4(),
             runnable,

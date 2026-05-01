@@ -9,7 +9,7 @@ use thiserror::Error;
 use tracing::{error, warn};
 
 use crate::{
-    logstrategy::LogStrategy,
+    logstrategy::{LogStrategy, LogStrategyType},
     task::{Runnable, Task},
     worker::{Worker, WorkerError},
 };
@@ -20,20 +20,17 @@ pub enum TaskError {
     Worker(#[from] WorkerError),
 }
 
-pub struct TaskHandler<T>
-where
-    T: LogStrategy + Send,
-{
-    queue: Arc<Mutex<VecDeque<Task<T>>>>,
-    workers: Arc<Mutex<Vec<Worker<T>>>>,
-    logger: Arc<T>,
+pub struct TaskHandler {
+    queue: Arc<Mutex<VecDeque<Task>>>,
+    workers: Arc<Mutex<Vec<Worker>>>,
+    logger: LogStrategyType,
 }
 
-impl<T> TaskHandler<T>
-where
-    T: LogStrategy + Send + Sync + 'static,
-{
-    pub fn new(workers: u64, logger: T) -> Result<Self, TaskError> {
+impl TaskHandler {
+    pub fn new(
+        workers: u64,
+        logger: impl LogStrategy + Send + Sync + 'static,
+    ) -> Result<Self, TaskError> {
         let mut workers_vec = Vec::new();
         for id in 0..workers {
             workers_vec.push(Worker::new(id)?)
@@ -53,13 +50,13 @@ where
         Ok(value)
     }
 
-    pub fn queue_task(&mut self, task: Task<T>) {
+    pub fn queue_task(&mut self, task: Task) {
         self.queue.lock().expect("to get lock").push_back(task);
     }
 
     pub fn manage_workers(
-        queue: Arc<Mutex<VecDeque<Task<T>>>>,
-        workers: Arc<Mutex<Vec<Worker<T>>>>,
+        queue: Arc<Mutex<VecDeque<Task>>>,
+        workers: Arc<Mutex<Vec<Worker>>>,
         max_workers: u64,
     ) -> ! {
         let mut current_worker_id = max_workers;
@@ -142,10 +139,10 @@ where
     }
 
     pub fn get_active_workers(&self) -> usize {
-        TaskHandler::<T>::static_get_active_workers(self.workers.clone())
+        TaskHandler::static_get_active_workers(self.workers.clone())
     }
 
-    fn static_get_active_workers(workers: Arc<Mutex<Vec<Worker<T>>>>) -> usize {
+    fn static_get_active_workers(workers: Arc<Mutex<Vec<Worker>>>) -> usize {
         let workers = workers.lock().expect("to get worker lock");
         workers
             .iter()
