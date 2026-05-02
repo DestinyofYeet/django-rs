@@ -1,10 +1,10 @@
 use itertools::Itertools;
 use rusqlite::Connection;
-use tracing::info;
+use tracing::{info, trace};
 use tracing_subscriber::fmt::init;
 
 use crate::{
-    models::{ColumnType, Model, ModelIteration},
+    models::{ColumnType, CreateColumnOptionsValues, Model, ModelIteration},
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
 };
 
@@ -62,6 +62,7 @@ impl DatabaseStrategy for SqliteStrategy {
                         .execute(&sql, [])
                         .map_err(|e| DatabaseStrategyError::MigrateModel(e.to_string()))?;
 
+                    trace!("produced sql: {sql}");
                     info!("Created table {}", migration_data.model_name);
                 }
                 ModelIteration::Modify => todo!(),
@@ -88,16 +89,28 @@ impl DatabaseStrategy for SqliteStrategy {
     }
 
     fn match_create_column_options(value: &crate::models::CreateColumnOptions) -> String {
-        let mut output = String::new();
+        let mut options = Vec::<String>::new();
 
-        if !value.nullable {
-            output.push_str("NOT NULL");
+        for option in value.options.iter() {
+            match option {
+                CreateColumnOptionsValues::Nullable => {
+                    options.push("NOT NULL".to_string());
+                }
+                CreateColumnOptionsValues::PrimaryKey => {
+                    options.push("PRIMARY KEY".to_string());
+                }
+                CreateColumnOptionsValues::Default(default) => {
+                    options.push(format!("DEFAULT {default}"));
+                }
+                CreateColumnOptionsValues::Unique => {
+                    options.push("UNIQUE".to_string());
+                }
+                CreateColumnOptionsValues::Check(check) => {
+                    options.push(format!("CHECK({check})"));
+                }
+            }
         }
 
-        if value.primary_key {
-            output.push_str("PRIMARY KEY");
-        }
-
-        output
+        options.join("  ")
     }
 }

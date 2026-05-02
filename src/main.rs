@@ -44,18 +44,19 @@ pub struct User {
 impl Model for User {
     fn get_migration() -> ModelMigration {
         ModelMigration::new(
-            "User",
+            "Users",
             vec![ModelIteration::Create(vec![
+                CreateColumn::new(
+                    "id",
+                    ColumnType::Integer,
+                    CreateColumnOptions::default().set_primary_key(),
+                ),
                 CreateColumn::new(
                     "username",
                     ColumnType::String,
-                    CreateColumnOptions::default().set_nullable(false),
+                    CreateColumnOptions::default(),
                 ),
-                CreateColumn::new(
-                    "email",
-                    ColumnType::String,
-                    CreateColumnOptions::default().set_nullable(false),
-                ),
+                CreateColumn::new("email", ColumnType::String, CreateColumnOptions::default()),
             ])],
         )
     }
