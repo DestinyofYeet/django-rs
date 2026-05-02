@@ -1,7 +1,8 @@
 use clap::Parser;
 use django_rs::{
     models::{
-        ColumnType, CreateColumn, CreateColumnOptions, Model, ModelIteration, ModelMigration,
+        ColumnType, Model, ModelIteration, ModelMigration,
+        column::{CreateColumn, CreateColumnOptions},
     },
     server::{
         Server,

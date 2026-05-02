@@ -1,10 +1,12 @@
 use itertools::Itertools;
-use rusqlite::Connection;
+use rusqlite::{Connection, params};
 use tracing::{info, trace};
-use tracing_subscriber::fmt::init;
 
 use crate::{
-    models::{ColumnType, CreateColumnOptionsValues, Model, ModelIteration},
+    models::{
+        ColumnType, Model, ModelIteration,
+        column::{CreateColumnOptions, CreateColumnOptionsValues},
+    },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
 };
 
@@ -39,6 +41,7 @@ impl DatabaseStrategy for SqliteStrategy {
                             "Can only create a table at the first iteration, not at iteration {count}"
                         )));
                     }
+
                     if self.table_exists(&migration_data.model_name)? {
                         continue;
                     }
@@ -51,7 +54,7 @@ impl DatabaseStrategy for SqliteStrategy {
                                 "    {} {} {}",
                                 col.key,
                                 SqliteStrategy::match_column_type(&col.value),
-                                SqliteStrategy::match_create_column_options(&col.options)
+                                SqliteStrategy::match_create_column_options(&col.options, &col.key)
                             )
                         })
                         .join(",\n");
@@ -88,7 +91,7 @@ impl DatabaseStrategy for SqliteStrategy {
         .to_string()
     }
 
-    fn match_create_column_options(value: &crate::models::CreateColumnOptions) -> String {
+    fn match_create_column_options(value: &CreateColumnOptions, _: &str) -> String {
         let mut options = Vec::<String>::new();
 
         for option in value.options.iter() {
@@ -112,5 +115,45 @@ impl DatabaseStrategy for SqliteStrategy {
         }
 
         options.join("  ")
+    }
+
+    fn setup_migration_table(&self) -> Result<(), DatabaseStrategyError> {
+        let sql = "CREATE TABLE _migrations (
+            table_name TEXT NOT NULL,
+            last_migration INTEGER NOT NULL,
+        )";
+
+        self.conn
+            .execute(sql, [])
+            .map_err(|e| DatabaseStrategyError::MigrationTable(e.to_string()))?;
+
+        Ok(())
+    }
+
+    fn on_migration_run(&self, table_name: &str, count: i64) -> Result<(), DatabaseStrategyError> {
+        let sql = "INSERT INTO _migrations (table_name, last_migration) values (?1, ?2)";
+        self.conn
+            .execute(sql, params![table_name, count])
+            .map_err(|e| DatabaseStrategyError::MigrationTable(e.to_string()))?;
+
+        Ok(())
+    }
+
+    fn get_last_migration(&self, table_name: &str) -> Result<i64, DatabaseStrategyError> {
+        let sql = "select * from _migrations where table_name = ?1";
+        let mut result = self
+            .conn
+            .prepare(sql)
+            .map_err(|e| DatabaseStrategyError::MigrationTable(e.to_string()))?;
+
+        let result = result
+            .query_map(params![table_name], |row| {
+                row.get("last_migration").map(|e: i64| e)
+            })
+            .map_err(|e| DatabaseStrategyError::MigrationTable(e.to_string()))?;
+
+        let result = result.into_iter().flatten().max().unwrap_or(0);
+
+        Ok(result)
     }
 }
