@@ -5,16 +5,22 @@ use crate::{
     tasks::{logstrategy::LogStrategy, taskhandler::TaskHandler},
 };
 
-pub struct Server {
+pub struct Server<D>
+where
+    D: DatabaseStrategy,
+{
     task_handler: TaskHandler,
-    database_strategy: Arc<dyn DatabaseStrategy>,
+    database_strategy: Arc<D>,
 }
 
-impl Server {
+impl<D> Server<D>
+where
+    D: DatabaseStrategy,
+{
     pub fn new(
         workers: u64,
         logging_strategy: impl LogStrategy + Send + Sync + 'static,
-        database_strategy: impl DatabaseStrategy + 'static,
+        database_strategy: D,
     ) -> Result<Self, ServerError> {
         Ok(Self {
             task_handler: TaskHandler::new(workers, logging_strategy)?,
@@ -22,7 +28,7 @@ impl Server {
         })
     }
 
-    pub fn get_database(&self) -> Arc<dyn DatabaseStrategy> {
+    pub fn get_database(&self) -> Arc<D> {
         self.database_strategy.clone()
     }
 

@@ -7,31 +7,42 @@ pub enum ModelValueType {
 }
 
 #[derive(Debug, Default)]
-pub struct ModelCreateOptions {
-    nullable: bool,
+pub struct ColumnCreateOptions {
+    pub(crate) nullable: bool,
+    pub(crate) primary_key: bool,
 }
 
-impl ModelCreateOptions {
+impl ColumnCreateOptions {
     pub fn set_nullable(mut self, value: bool) -> Self {
         self.nullable = value;
 
         self
     }
+
+    pub fn set_primary_key(mut self, value: bool) -> Self {
+        self.primary_key = value;
+
+        self
+    }
 }
 
-pub enum ModelAction {
-    Create(ModelCreateOptions),
-    RenameField { from: String, to: String },
-}
+// pub enum ModelAction {
+//     Create(ModelCreateOptions),
+//     RenameField { from: String, to: String },
+// }
 
-pub struct ModelFieldType {
+pub struct ColumnCreation {
     pub(crate) key: String,
     pub(crate) value: ModelValueType,
-    pub(crate) action: ModelAction,
+    pub(crate) action: ColumnCreateOptions,
 }
 
-impl ModelFieldType {
-    pub fn new(key: impl ToString, value: ModelValueType, action: ModelAction) -> Self {
+impl ColumnCreation {
+    pub fn create_column(
+        key: impl ToString,
+        value: ModelValueType,
+        action: ColumnCreateOptions,
+    ) -> Self {
         Self {
             key: key.to_string(),
             value,
@@ -41,21 +52,29 @@ impl ModelFieldType {
 }
 
 pub struct ModelIteration {
-    pub(crate) iteration: u64,
-    pub(crate) model_name: String,
-    pub(crate) data: Vec<ModelFieldType>,
+    pub(crate) data: Vec<ColumnCreation>,
 }
 
 impl ModelIteration {
-    pub fn new(iteration: u64, model_name: impl ToString, data: Vec<ModelFieldType>) -> Self {
+    pub fn new(data: Vec<ColumnCreation>) -> Self {
+        Self { data }
+    }
+}
+
+pub struct ModelMigration {
+    pub(crate) model_name: String,
+    pub(crate) data: Vec<ModelIteration>,
+}
+
+impl ModelMigration {
+    pub fn new(model_name: impl ToString, data: Vec<ModelIteration>) -> Self {
         Self {
-            iteration,
-            data,
             model_name: model_name.to_string(),
+            data,
         }
     }
 }
 
 pub trait Model {
-    fn get_fields() -> Vec<ModelIteration>;
+    fn get_migration() -> ModelMigration;
 }

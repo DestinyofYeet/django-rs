@@ -1,12 +1,15 @@
 use clap::Parser;
 use django_rs::{
     models::{
-        Model, ModelAction, ModelCreateOptions, ModelFieldType, ModelIteration, ModelValueType,
+        ColumnCreateOptions, ColumnCreation, Model, ModelAction, ModelIteration, ModelMigration,
+        ModelValueType,
     },
-    server::{Server, database_strategy::default_strategies::SqliteStrategy},
+    server::{
+        Server,
+        database_strategy::{DatabaseStrategy, default_strategies::SqliteStrategy},
+    },
     tasks::{
         logstrategy::{LogStrategyType, default_strategies::tracing_strategy::TracingStrategy},
-        taskhandler::TaskHandler,
         taskrunnable::TaskRunnable,
     },
 };
@@ -40,23 +43,22 @@ pub struct User {
 }
 
 impl Model for User {
-    fn get_fields() -> Vec<ModelIteration> {
-        vec![ModelIteration::new(
-            0,
+    fn get_migration() -> ModelMigration {
+        ModelMigration::new(
             "User",
-            vec![
-                ModelFieldType::new(
+            vec![ModelIteration::new(vec![
+                ColumnCreation::new(
                     "username",
                     ModelValueType::String,
-                    ModelAction::Create(ModelCreateOptions::default().set_nullable(false)),
+                    ColumnCreation::Create(ColumnCreateOptions::default().set_nullable(false)),
                 ),
-                ModelFieldType::new(
+                ColumnCreation::new(
                     "email",
                     ModelValueType::String,
-                    ModelAction::Create(ModelCreateOptions::default().set_nullable(false)),
+                    ModelAction::Create(ColumnCreateOptions::default().set_nullable(false)),
                 ),
-            ],
-        )]
+            ])],
+        )
     }
 }
 
@@ -75,9 +77,9 @@ fn main() -> Result<(), anyhow::Error> {
         .with_env_filter(EnvFilter::new(level))
         .init();
 
-    let server = Server::new(8, TracingStrategy {}, SqliteStrategy::new(":memory:"))?;
+    let server = Server::new(8, TracingStrategy {}, SqliteStrategy::new("tmp/db.sqlite"))?;
 
-    server.get_database().migrate_model()
+    server.get_database().migrate_model::<User>()?;
 
     server.shutdown()?;
 

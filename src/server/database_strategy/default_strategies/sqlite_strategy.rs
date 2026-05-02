@@ -1,6 +1,7 @@
-use std::path::PathBuf;
-
-use sqlite::Connection;
+use itertools::Itertools;
+use rusqlite::Connection;
+use tracing::info;
+use tracing_subscriber::fmt::init;
 
 use crate::{
     models::{Model, ModelValueType},
@@ -13,40 +14,105 @@ pub struct SqliteStrategy {
 
 impl SqliteStrategy {
     pub fn new(path: impl ToString) -> Self {
-        let sqlite = sqlite::open(path.to_string()).unwrap();
+        let sqlite = Connection::open(path.to_string()).unwrap();
 
         Self { conn: sqlite }
     }
 }
 
 impl DatabaseStrategy for SqliteStrategy {
-    fn migrate_model(&self, model: impl Model) -> Result<(), DatabaseStrategyError> {
-        let data = model.get_fields();
-        let latest = &data[0];
-        struct ResultingTable {
-            table_name: String,
-            fields: Vec<(String, ModelValueType)>,
+    fn migrate_model<M: Model>(&self) -> Result<(), DatabaseStrategyError> {
+        let migration_data = M::get_migration();
+
+        if migration_data.data.len() != 1 {
+            return Err(DatabaseStrategyError::MigrateModel(format!(
+                "Migration for model {} needs to have at least one migration!",
+                &migration_data.model_name
+            )));
         }
 
-        let mut table = ResultingTable {
-            table_name: latest.model_name.clone(),
-            fields: Vec::new(),
-        };
-
-        for field in latest.data.iter() {
-            table.fields.push((field.key.clone(), field.value));
-        }
-
-        let query = "select name from sqlite_master where type = 'table' and name = :name";
-        let mut statement = self.conn.prepare(query).unwrap();
-        statement
-            .bind((":name", table.table_name.as_str()))
-            .map_err(|e| DatabaseStrategyError::MigrateModel(e.to_string()))?;
-
-        let table_exists = statement.column_count() != 0;
+        let table_exists = self.table_exists(&migration_data.model_name)?;
 
         println!("table_exists: {table_exists}");
 
+        if !table_exists {
+            let initial_fields = &migration_data.data[0];
+
+            for field in initial_fields.data.iter() {
+                match field.action {
+                    ModelAction::Create(_) => {}
+                    _ => {
+                        return Err(DatabaseStrategyError::MigrateModel(format!(
+                            "Field {}, needs to be a creation error.",
+                            field.key
+                        )));
+                    }
+                }
+            }
+
+            let sql = format!(
+                "CREATE TABLE {} (\n {} \n)",
+                migration_data.model_name,
+                initial_fields
+                    .data
+                    .iter()
+                    .map(|field| {
+                        format!(
+                            "\t {} {} {}",
+                            field.key,
+                            SqliteStrategy::match_model(&field.value),
+                            SqliteStrategy::match_column_creation(&field.action)
+                        )
+                    })
+                    .join(",\n")
+            );
+
+            println!("{sql}");
+
+            self.conn
+                .execute(&sql, [])
+                .map_err(|e| DatabaseStrategyError::MigrateModel(e.to_string()))?;
+
+            info!("Created table {}", &migration_data.model_name);
+        }
+
         Ok(())
     }
+
+    fn table_exists(&self, table_name: &str) -> Result<bool, DatabaseStrategyError> {
+        self.conn
+            .table_exists(None, table_name)
+            .map_err(|e| DatabaseStrategyError::MigrateModel(e.to_string()))
+    }
+
+    fn match_model(value: &ModelValueType) -> String {
+        (match value {
+            ModelValueType::String => "TEXT",
+            ModelValueType::Integer => "INTEGER",
+            ModelValueType::Float => "REAL",
+            ModelValueType::Date => "TEXT",
+        })
+        .to_string()
+    }
+
+    // fn match_action(value: &ModelAction) -> String {
+    //     let mut output = String::new();
+
+    //     match value {
+    //         ModelAction::Create(model_create_options) => {
+    //             if !model_create_options.nullable {
+    //                 output.push_str("NOT NULL");
+    //             }
+
+    //             if model_create_options.primary_key {
+    //                 output.push_str("PRIMARY KEY");
+    //             }
+    //         }
+    //         ModelAction::RenameField { from: _, to: _ } => {
+    //             panic!("Cannot use field rename in this context.")
+    //         }
+    //     }
+
+    //     output
+    // }
 }
