@@ -1,5 +1,5 @@
 #[derive(Clone, Copy)]
-pub enum ModelValueType {
+pub enum ColumnType {
     String,
     Integer,
     Float,
@@ -7,12 +7,12 @@ pub enum ModelValueType {
 }
 
 #[derive(Debug, Default)]
-pub struct ColumnCreateOptions {
+pub struct CreateColumnOptions {
     pub(crate) nullable: bool,
     pub(crate) primary_key: bool,
 }
 
-impl ColumnCreateOptions {
+impl CreateColumnOptions {
     pub fn set_nullable(mut self, value: bool) -> Self {
         self.nullable = value;
 
@@ -31,34 +31,25 @@ impl ColumnCreateOptions {
 //     RenameField { from: String, to: String },
 // }
 
-pub struct ColumnCreation {
+pub struct CreateColumn {
     pub(crate) key: String,
-    pub(crate) value: ModelValueType,
-    pub(crate) action: ColumnCreateOptions,
+    pub(crate) value: ColumnType,
+    pub(crate) options: CreateColumnOptions,
 }
 
-impl ColumnCreation {
-    pub fn create_column(
-        key: impl ToString,
-        value: ModelValueType,
-        action: ColumnCreateOptions,
-    ) -> Self {
+impl CreateColumn {
+    pub fn new(key: impl ToString, value: ColumnType, options: CreateColumnOptions) -> Self {
         Self {
             key: key.to_string(),
             value,
-            action,
+            options,
         }
     }
 }
 
-pub struct ModelIteration {
-    pub(crate) data: Vec<ColumnCreation>,
-}
-
-impl ModelIteration {
-    pub fn new(data: Vec<ColumnCreation>) -> Self {
-        Self { data }
-    }
+pub enum ModelIteration {
+    Create(Vec<CreateColumn>),
+    Modify,
 }
 
 pub struct ModelMigration {

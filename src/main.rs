@@ -1,8 +1,7 @@
 use clap::Parser;
 use django_rs::{
     models::{
-        ColumnCreateOptions, ColumnCreation, Model, ModelAction, ModelIteration, ModelMigration,
-        ModelValueType,
+        ColumnType, CreateColumn, CreateColumnOptions, Model, ModelIteration, ModelMigration,
     },
     server::{
         Server,
@@ -46,16 +45,16 @@ impl Model for User {
     fn get_migration() -> ModelMigration {
         ModelMigration::new(
             "User",
-            vec![ModelIteration::new(vec![
-                ColumnCreation::new(
+            vec![ModelIteration::Create(vec![
+                CreateColumn::new(
                     "username",
-                    ModelValueType::String,
-                    ColumnCreation::Create(ColumnCreateOptions::default().set_nullable(false)),
+                    ColumnType::String,
+                    CreateColumnOptions::default().set_nullable(false),
                 ),
-                ColumnCreation::new(
+                CreateColumn::new(
                     "email",
-                    ModelValueType::String,
-                    ModelAction::Create(ColumnCreateOptions::default().set_nullable(false)),
+                    ColumnType::String,
+                    CreateColumnOptions::default().set_nullable(false),
                 ),
             ])],
         )
