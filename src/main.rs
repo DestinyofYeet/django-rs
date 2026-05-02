@@ -1,8 +1,14 @@
 use clap::Parser;
-use django_rs::tasks::{
-    logstrategy::{LogStrategyType, default_strategies::tracing_strategy::TracingStrategy},
-    taskhandler::TaskHandler,
-    taskrunnable::TaskRunnable,
+use django_rs::{
+    models::{
+        Model, ModelAction, ModelCreateOptions, ModelFieldType, ModelIteration, ModelValueType,
+    },
+    server::{Server, database_strategy::default_strategies::SqliteStrategy},
+    tasks::{
+        logstrategy::{LogStrategyType, default_strategies::tracing_strategy::TracingStrategy},
+        taskhandler::TaskHandler,
+        taskrunnable::TaskRunnable,
+    },
 };
 use std::{thread, time::Duration};
 use tracing_subscriber::EnvFilter;
@@ -28,6 +34,32 @@ impl TaskRunnable for PrintTask {
     }
 }
 
+pub struct User {
+    username: String,
+    email: String,
+}
+
+impl Model for User {
+    fn get_fields() -> Vec<ModelIteration> {
+        vec![ModelIteration::new(
+            0,
+            "User",
+            vec![
+                ModelFieldType::new(
+                    "username",
+                    ModelValueType::String,
+                    ModelAction::Create(ModelCreateOptions::default().set_nullable(false)),
+                ),
+                ModelFieldType::new(
+                    "email",
+                    ModelValueType::String,
+                    ModelAction::Create(ModelCreateOptions::default().set_nullable(false)),
+                ),
+            ],
+        )]
+    }
+}
+
 fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
 
@@ -43,13 +75,11 @@ fn main() -> Result<(), anyhow::Error> {
         .with_env_filter(EnvFilter::new(level))
         .init();
 
-    let handler = TaskHandler::new(8, TracingStrategy {})?;
+    let server = Server::new(8, TracingStrategy {}, SqliteStrategy::new(":memory:"))?;
 
-    for _ in 0..50 {
-        handler.create_task(PrintTask::new());
-    }
+    server.get_database().migrate_model()
 
-    handler.shutdown()?;
+    server.shutdown()?;
 
     Ok(())
 }
