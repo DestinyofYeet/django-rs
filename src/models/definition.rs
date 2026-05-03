@@ -27,6 +27,28 @@ impl ModelMigration {
     }
 }
 
+pub enum SaveModelType {
+    String(String),
+    Integer(i64),
+    Float(f64),
+}
+
+pub struct SaveModel {
+    key: String,
+    value: SaveModelType,
+}
+
+impl SaveModel {
+    pub fn new(key: impl ToString, value: SaveModelType) -> Self {
+        Self {
+            key: key.to_string(),
+            value,
+        }
+    }
+}
+
 pub trait Model {
     fn get_migration() -> ModelMigration;
+
+    fn get_save_data(&self) -> Vec<SaveModel>;
 }

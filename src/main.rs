@@ -1,8 +1,8 @@
 use clap::Parser;
 use django_rs::{
     models::{
-        ColumnType, Model, ModelIteration, ModelMigration,
-        column::{CreateColumn, CreateColumnOptions},
+        ColumnType, Model, ModelIteration, ModelMigration, SaveModel, SaveModelType,
+        column::{CreateColumn, CreateColumnOptions, ModifyColumn, ModifyColumnOptionsValues},
     },
     server::{
         Server,
@@ -60,6 +60,13 @@ impl Model for User {
                 CreateColumn::new("email", ColumnType::String, CreateColumnOptions::default()),
             ])],
         )
+    }
+
+    fn get_save_data(&self) -> Vec<SaveModel> {
+        vec![
+            SaveModel::new("username", SaveModelType::String(self.username.clone())),
+            SaveModel::new("email", SaveModelType::String(self.email.clone())),
+        ]
     }
 }
 

@@ -66,4 +66,11 @@ pub trait DatabaseStrategy {
         conn: Self::ConnectionType<'_>,
         table_name: &str,
     ) -> Result<Option<i64>, DatabaseStrategyError>;
+
+    /// This function should save the model to the database
+    fn save_model(
+        &self,
+        conn: Self::ConnectionType<'_>,
+        model: impl Model,
+    ) -> Result<(), DatabaseStrategyError>;
 }

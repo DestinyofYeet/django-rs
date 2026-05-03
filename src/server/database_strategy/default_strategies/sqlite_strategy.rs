@@ -34,10 +34,12 @@ impl DatabaseStrategy for SqliteStrategy {
     fn migrate_model<M: Model>(&self) -> Result<(), DatabaseStrategyError> {
         let migration_data = M::get_migration();
 
+        let table_name = &migration_data.model_name;
+
         if migration_data.data.is_empty() {
             return Err(DatabaseStrategyError::MigrateModel(format!(
                 "Migration for model {} needs to have at least one migration!",
-                &migration_data.model_name
+                table_name
             )));
         }
 
@@ -47,13 +49,12 @@ impl DatabaseStrategy for SqliteStrategy {
 
         for (count, migration) in migration_data.data.iter().enumerate() {
             self.setup_migration_table(self.get_connection())?;
-            if let Some(migration) =
-                self.get_last_migration(&transaction, &migration_data.model_name)?
-                && migration <= count as i64
+            if let Some(migration) = self.get_last_migration(&transaction, table_name)?
+                && migration >= count as i64
             {
                 debug!(
                     "{}: migration {} not needed, idx {}",
-                    &migration_data.model_name, migration, count,
+                    table_name, migration, count,
                 );
                 continue;
             }
@@ -66,11 +67,11 @@ impl DatabaseStrategy for SqliteStrategy {
                         )));
                     }
 
-                    if self.table_exists(&transaction, &migration_data.model_name)? {
+                    if self.table_exists(&transaction, table_name)? {
                         continue;
                     }
 
-                    let mut sql = format!("CREATE TABLE {} (\n", migration_data.model_name);
+                    let mut sql = format!("CREATE TABLE {} (\n", table_name);
                     sql += &columns
                         .iter()
                         .map(|col| {
@@ -91,10 +92,24 @@ impl DatabaseStrategy for SqliteStrategy {
 
                     trace!("produced sql: {sql}");
                     info!("Created table {}", migration_data.model_name);
-                    self.on_migration_run(&transaction, &migration_data.model_name, count as i64)?;
                 }
-                ModelIteration::Modify(columns) => for col in columns {},
+                ModelIteration::Modify(columns) => {
+                    for col in columns {
+                        let mut sql = format!("ALTER TABLE {table_name}\n");
+                        sql += &SqliteStrategy::match_modify_column_options(&col.options, &col.key)
+                            .to_string();
+
+                        sql += ";";
+                        trace!("produced sql: {sql}");
+
+                        transaction
+                            .execute(&sql, [])
+                            .map_err(|e| DatabaseStrategyError::MigrateModel(e.to_string()))?;
+                    }
+                }
             }
+
+            self.on_migration_run(&transaction, table_name, count as i64)?;
         }
 
         transaction
