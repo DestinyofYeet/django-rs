@@ -1,4 +1,4 @@
-use crate::models::column::CreateColumn;
+use crate::models::column::{CreateColumn, ModifyColumn};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ColumnType {
@@ -10,7 +10,7 @@ pub enum ColumnType {
 
 pub enum ModelIteration {
     Create(Vec<CreateColumn>),
-    Modify,
+    Modify(Vec<ModifyColumn>),
 }
 
 pub struct ModelMigration {

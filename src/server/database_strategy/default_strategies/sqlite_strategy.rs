@@ -1,11 +1,13 @@
+use std::marker::PhantomData;
+
 use itertools::Itertools;
-use rusqlite::{Connection, params};
-use tracing::{info, trace};
+use rusqlite::{Connection, Transaction, params};
+use tracing::{debug, info, trace};
 
 use crate::{
     models::{
         ColumnType, Model, ModelIteration,
-        column::{CreateColumnOptions, CreateColumnOptionsValues},
+        column::{CreateColumnOptions, CreateColumnOptionsValues, ModifyColumnOptionsValues},
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
 };
@@ -23,6 +25,12 @@ impl SqliteStrategy {
 }
 
 impl DatabaseStrategy for SqliteStrategy {
+    type ConnectionType<'a> = &'a Connection;
+
+    fn get_connection(&self) -> Self::ConnectionType<'_> {
+        &self.conn
+    }
+
     fn migrate_model<M: Model>(&self) -> Result<(), DatabaseStrategyError> {
         let migration_data = M::get_migration();
 
@@ -33,7 +41,23 @@ impl DatabaseStrategy for SqliteStrategy {
             )));
         }
 
+        let transaction =
+            Transaction::new_unchecked(&self.conn, rusqlite::TransactionBehavior::Deferred)
+                .map_err(|e| DatabaseStrategyError::Transaction(e.to_string()))?;
+
         for (count, migration) in migration_data.data.iter().enumerate() {
+            self.setup_migration_table(self.get_connection())?;
+            if let Some(migration) =
+                self.get_last_migration(&transaction, &migration_data.model_name)?
+                && migration <= count as i64
+            {
+                debug!(
+                    "{}: migration {} not needed, idx {}",
+                    &migration_data.model_name, migration, count,
+                );
+                continue;
+            }
+
             match migration {
                 ModelIteration::Create(columns) => {
                     if count != 0 {
@@ -42,7 +66,7 @@ impl DatabaseStrategy for SqliteStrategy {
                         )));
                     }
 
-                    if self.table_exists(&migration_data.model_name)? {
+                    if self.table_exists(&transaction, &migration_data.model_name)? {
                         continue;
                     }
 
@@ -61,23 +85,31 @@ impl DatabaseStrategy for SqliteStrategy {
 
                     sql += "\n)";
 
-                    self.conn
+                    transaction
                         .execute(&sql, [])
                         .map_err(|e| DatabaseStrategyError::MigrateModel(e.to_string()))?;
 
                     trace!("produced sql: {sql}");
                     info!("Created table {}", migration_data.model_name);
+                    self.on_migration_run(&transaction, &migration_data.model_name, count as i64)?;
                 }
-                ModelIteration::Modify => todo!(),
+                ModelIteration::Modify(columns) => for col in columns {},
             }
         }
+
+        transaction
+            .commit()
+            .map_err(|e| DatabaseStrategyError::Transaction(e.to_string()))?;
 
         Ok(())
     }
 
-    fn table_exists(&self, table_name: &str) -> Result<bool, DatabaseStrategyError> {
-        self.conn
-            .table_exists(None, table_name)
+    fn table_exists(
+        &self,
+        conn: &Connection,
+        table_name: &str,
+    ) -> Result<bool, DatabaseStrategyError> {
+        conn.table_exists(None, table_name)
             .map_err(|e| DatabaseStrategyError::MigrateModel(e.to_string()))
     }
 
@@ -117,32 +149,42 @@ impl DatabaseStrategy for SqliteStrategy {
         options.join("  ")
     }
 
-    fn setup_migration_table(&self) -> Result<(), DatabaseStrategyError> {
+    fn setup_migration_table(&self, conn: &Connection) -> Result<(), DatabaseStrategyError> {
+        if self.table_exists(conn, "_migrations")? {
+            return Ok(());
+        }
+
         let sql = "CREATE TABLE _migrations (
             table_name TEXT NOT NULL,
-            last_migration INTEGER NOT NULL,
+            last_migration INTEGER NOT NULL
         )";
 
-        self.conn
-            .execute(sql, [])
+        conn.execute(sql, [])
             .map_err(|e| DatabaseStrategyError::MigrationTable(e.to_string()))?;
 
         Ok(())
     }
 
-    fn on_migration_run(&self, table_name: &str, count: i64) -> Result<(), DatabaseStrategyError> {
+    fn on_migration_run(
+        &self,
+        conn: &Connection,
+        table_name: &str,
+        count: i64,
+    ) -> Result<(), DatabaseStrategyError> {
         let sql = "INSERT INTO _migrations (table_name, last_migration) values (?1, ?2)";
-        self.conn
-            .execute(sql, params![table_name, count])
+        conn.execute(sql, params![table_name, count])
             .map_err(|e| DatabaseStrategyError::MigrationTable(e.to_string()))?;
 
         Ok(())
     }
 
-    fn get_last_migration(&self, table_name: &str) -> Result<i64, DatabaseStrategyError> {
+    fn get_last_migration(
+        &self,
+        conn: &Connection,
+        table_name: &str,
+    ) -> Result<Option<i64>, DatabaseStrategyError> {
         let sql = "select * from _migrations where table_name = ?1";
-        let mut result = self
-            .conn
+        let mut result = conn
             .prepare(sql)
             .map_err(|e| DatabaseStrategyError::MigrationTable(e.to_string()))?;
 
@@ -152,8 +194,35 @@ impl DatabaseStrategy for SqliteStrategy {
             })
             .map_err(|e| DatabaseStrategyError::MigrationTable(e.to_string()))?;
 
-        let result = result.into_iter().flatten().max().unwrap_or(0);
+        let result = result.into_iter().flatten().max().map(Some).unwrap_or(None);
 
         Ok(result)
+    }
+
+    fn match_modify_column_options(
+        value: &crate::models::column::ModifyColumnOptionsValues,
+        column_name: &str,
+    ) -> String {
+        let mut out = String::new();
+        match value {
+            ModifyColumnOptionsValues::Rename { to } => {
+                out.push_str(&format!("RENAME COLUMN {column_name} TO {to}"));
+            }
+            ModifyColumnOptionsValues::Drop => {
+                out.push_str(&format!("DROP COLUMN {column_name}"));
+            }
+            ModifyColumnOptionsValues::Add {
+                new_type,
+                new_options,
+            } => {
+                out.push_str(&format!(
+                    "ADD COLUMN {column_name} {} {}",
+                    SqliteStrategy::match_column_type(new_type),
+                    SqliteStrategy::match_create_column_options(new_options, column_name)
+                ));
+            }
+        }
+
+        out
     }
 }

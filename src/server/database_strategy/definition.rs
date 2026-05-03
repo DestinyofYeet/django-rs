@@ -1,6 +1,9 @@
 use thiserror::Error;
 
-use crate::models::{ColumnType, Model, column::CreateColumnOptions};
+use crate::models::{
+    ColumnType, Model,
+    column::{CreateColumnOptions, ModifyColumnOptionsValues},
+};
 
 #[derive(Error, Debug)]
 pub enum DatabaseStrategyError {
@@ -9,11 +12,27 @@ pub enum DatabaseStrategyError {
 
     #[error("Failed to setup migration table: {0}")]
     MigrationTable(String),
+
+    #[error("Failed to create transaction: {0}")]
+    Transaction(String),
+
+    #[error("Error: {0}")]
+    Error(String),
 }
 
 pub trait DatabaseStrategy {
+    type ConnectionType<'a>
+    where
+        Self: 'a;
+
+    fn get_connection(&self) -> Self::ConnectionType<'_>;
+
     /// This function should tell if a table exists
-    fn table_exists(&self, table_name: &str) -> Result<bool, DatabaseStrategyError>;
+    fn table_exists(
+        &self,
+        conn: Self::ConnectionType<'_>,
+        table_name: &str,
+    ) -> Result<bool, DatabaseStrategyError>;
 
     /// This function should migrate a Model to the database
     fn migrate_model<M: Model>(&self) -> Result<(), DatabaseStrategyError>;
@@ -25,12 +44,26 @@ pub trait DatabaseStrategy {
     /// This function should return valid sql
     fn match_create_column_options(value: &CreateColumnOptions, column_name: &str) -> String;
 
+    fn match_modify_column_options(value: &ModifyColumnOptionsValues, column_name: &str) -> String;
+
     /// This function should setup the migration table
-    fn setup_migration_table(&self) -> Result<(), DatabaseStrategyError>;
+    fn setup_migration_table(
+        &self,
+        conn: Self::ConnectionType<'_>,
+    ) -> Result<(), DatabaseStrategyError>;
 
     /// This function should record that a migration has run
-    fn on_migration_run(&self, table_name: &str, index: i64) -> Result<(), DatabaseStrategyError>;
+    fn on_migration_run(
+        &self,
+        conn: Self::ConnectionType<'_>,
+        table_name: &str,
+        index: i64,
+    ) -> Result<(), DatabaseStrategyError>;
 
     /// This function should return the last run migration for the given table
-    fn get_last_migration(&self, table_name: &str) -> Result<i64, DatabaseStrategyError>;
+    fn get_last_migration(
+        &self,
+        conn: Self::ConnectionType<'_>,
+        table_name: &str,
+    ) -> Result<Option<i64>, DatabaseStrategyError>;
 }

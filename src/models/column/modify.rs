@@ -1,19 +1,18 @@
-use std::collections::HashSet;
-
 use crate::models::{ColumnType, column::CreateColumnOptions};
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug)]
 pub enum ModifyColumnOptionsValues {
     Rename {
         to: String,
     },
     Drop,
-    Modify {
+    Add {
         new_type: ColumnType,
         new_options: CreateColumnOptions,
     },
 }
 
-pub struct ModifyColumnOptions {
-    pub(crate) options: HashSet<ModifyColumnOptionsValues>,
+pub struct ModifyColumn {
+    pub(crate) key: String,
+    pub(crate) options: ModifyColumnOptionsValues,
 }

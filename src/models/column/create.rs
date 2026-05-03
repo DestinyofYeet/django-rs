@@ -15,15 +15,6 @@ pub enum CreateColumnOptionsValues {
 pub struct CreateColumnOptions {
     pub(crate) options: HashSet<CreateColumnOptionsValues>,
 }
-
-impl std::hash::Hash for CreateColumnOptions {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        for elem in self.options.iter() {
-            elem.hash(state);
-        }
-    }
-}
-
 impl CreateColumnOptions {
     /// This column can be null (default: false)
     pub fn set_nullable(mut self) -> Self {
