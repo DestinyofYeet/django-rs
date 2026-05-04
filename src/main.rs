@@ -46,26 +46,40 @@ impl Model for User {
     fn get_migration() -> ModelMigration {
         ModelMigration::new(
             "Users",
-            vec![ModelIteration::Create(vec![
-                CreateColumn::new(
-                    "id",
-                    ColumnType::Integer,
-                    CreateColumnOptions::default().set_primary_key(),
-                ),
-                CreateColumn::new(
-                    "username",
-                    ColumnType::String,
-                    CreateColumnOptions::default(),
-                ),
-                CreateColumn::new("email", ColumnType::String, CreateColumnOptions::default()),
-            ])],
+            vec![
+                ModelIteration::Create(vec![
+                    CreateColumn::new(
+                        "id",
+                        ColumnType::Integer,
+                        CreateColumnOptions::default().set_primary_key(),
+                    ),
+                    CreateColumn::new(
+                        "username",
+                        ColumnType::String,
+                        CreateColumnOptions::default(),
+                    ),
+                    CreateColumn::new("email", ColumnType::String, CreateColumnOptions::default()),
+                ]),
+                ModelIteration::Modify(vec![ModifyColumn::new(
+                    "email",
+                    ModifyColumnOptionsValues::Rename {
+                        to: "mail".to_string(),
+                    },
+                )]),
+            ],
         )
     }
 
     fn get_save_data(&self) -> Vec<SaveModel> {
         vec![
-            SaveModel::new("username", SaveModelType::String(self.username.clone())),
-            SaveModel::new("email", SaveModelType::String(self.email.clone())),
+            SaveModel::new(
+                Self::get_latest_column_name("username").unwrap(),
+                SaveModelType::String(self.username.clone()),
+            ),
+            SaveModel::new(
+                Self::get_latest_column_name("email").unwrap(),
+                SaveModelType::String(self.email.clone()),
+            ),
         ]
     }
 }
@@ -88,6 +102,13 @@ fn main() -> Result<(), anyhow::Error> {
     let server = Server::new(8, TracingStrategy {}, SqliteStrategy::new("tmp/db.sqlite"))?;
 
     server.get_database().migrate_model::<User>()?;
+
+    let user = User {
+        username: String::from("hi"),
+        email: String::from("blub"),
+    };
+
+    dbg!(User::get_latest_column_name("email"));
 
     server.shutdown()?;
 

@@ -1,4 +1,6 @@
-use crate::models::column::{CreateColumn, ModifyColumn};
+use std::str::FromStr;
+
+use crate::models::column::{CreateColumn, ModifyColumn, ModifyColumnOptionsValues};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ColumnType {
@@ -51,4 +53,28 @@ pub trait Model {
     fn get_migration() -> ModelMigration;
 
     fn get_save_data(&self) -> Vec<SaveModel>;
+
+    fn get_latest_column_name(initial_name: &str) -> Option<String> {
+        let mut name = Some(String::from(initial_name));
+
+        for migration in Self::get_migration().data {
+            match migration {
+                ModelIteration::Create(_) => {}
+                ModelIteration::Modify(modifiers) => {
+                    for modification in modifiers {
+                        match modification.options {
+                            ModifyColumnOptionsValues::Rename { to } => name = Some(to),
+                            ModifyColumnOptionsValues::Drop => name = None,
+                            ModifyColumnOptionsValues::Add {
+                                new_type: _,
+                                new_options: _,
+                            } => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        name
+    }
 }

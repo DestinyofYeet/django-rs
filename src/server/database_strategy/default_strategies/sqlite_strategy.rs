@@ -240,4 +240,12 @@ impl DatabaseStrategy for SqliteStrategy {
 
         out
     }
+
+    fn save_model(
+        &self,
+        conn: Self::ConnectionType<'_>,
+        model: impl Model,
+    ) -> Result<(), DatabaseStrategyError> {
+        todo!()
+    }
 }
