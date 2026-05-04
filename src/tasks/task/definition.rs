@@ -1,13 +1,22 @@
+use std::sync::Mutex;
+
 use uuid::Uuid;
 
 use crate::tasks::{logstrategy::LogStrategyType, taskrunnable::TaskRunnable};
 
 pub type Runnable = Box<dyn TaskRunnable + Sync + Send>;
 
+pub enum TaskState {
+    Queued,
+    Running,
+    Done,
+}
+
 pub struct Task {
     id: Uuid,
     runnable: Runnable,
     logger: LogStrategyType,
+    state: TaskState,
 }
 
 impl Task {
@@ -16,6 +25,7 @@ impl Task {
             id: Uuid::new_v4(),
             runnable,
             logger,
+            state: TaskState::Queued,
         }
     }
 
@@ -26,5 +36,9 @@ impl Task {
     #[inline(always)]
     pub fn get_id(&self) -> Uuid {
         self.id
+    }
+
+    pub fn set_state(&mut self, state: TaskState) {
+        self.state = state;
     }
 }

@@ -21,7 +21,7 @@ pub enum TaskError {
 }
 
 pub struct TaskHandler {
-    queue: Arc<Mutex<VecDeque<Task>>>,
+    queue: Arc<Mutex<VecDeque<Arc<Mutex<Task>>>>>,
     workers: Arc<Mutex<Vec<Worker>>>,
     logger: LogStrategyType,
 }
@@ -51,11 +51,14 @@ impl TaskHandler {
     }
 
     pub fn queue_task(&mut self, task: Task) {
-        self.queue.lock().expect("to get lock").push_back(task);
+        self.queue
+            .lock()
+            .expect("to get lock")
+            .push_back(Arc::new(Mutex::new(task)));
     }
 
     pub fn manage_workers(
-        queue: Arc<Mutex<VecDeque<Task>>>,
+        queue: Arc<Mutex<VecDeque<Arc<Mutex<Task>>>>>,
         workers: Arc<Mutex<Vec<Worker>>>,
         max_workers: u64,
     ) -> ! {
@@ -155,6 +158,6 @@ impl TaskHandler {
         self.queue
             .lock()
             .expect("to get queue lock")
-            .push_back(task);
+            .push_back(Arc::new(Mutex::new(task)));
     }
 }

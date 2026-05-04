@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    rc::Rc,
     sync::{
         Arc, Mutex,
         mpsc::{self, Receiver, Sender},
@@ -9,10 +10,13 @@ use std::{
 
 use tracing::trace;
 
-use crate::tasks::{task::Task, worker::WorkerError};
+use crate::tasks::{
+    task::{Task, TaskState},
+    worker::WorkerError,
+};
 
 pub enum WorkerCommand {
-    ProcessTask(Task),
+    ProcessTask(Arc<Mutex<Task>>),
     Init,
     Close,
 }
@@ -44,12 +48,16 @@ impl Worker {
 
                 while let Some(command) = rx.iter().next() {
                     match command {
-                        WorkerCommand::ProcessTask(mut task) => {
+                        WorkerCommand::ProcessTask(task) => {
+                            let mut task = task.lock().expect("to get lock");
+
                             worker_log(&format!("Processing task {}", task.get_id()));
                             {
                                 *has_task.lock().expect("to get lock") = true;
                             }
+                            task.set_state(TaskState::Running);
                             task.run(id);
+                            task.set_state(TaskState::Done);
                             {
                                 *has_task.lock().expect("to get lock") = false;
                             }
@@ -78,8 +86,8 @@ impl Worker {
             .map_err(|e| WorkerError::Channel(e.to_string()))
     }
 
-    pub fn schedule_task(&self, task: Task) -> Result<(), WorkerError> {
-        self.send_msg(WorkerCommand::ProcessTask(task))
+    pub fn schedule_task(&self, task: Arc<Mutex<Task>>) -> Result<(), WorkerError> {
+        self.send_msg(WorkerCommand::ProcessTask(task.clone()))
     }
 
     pub fn stop(&self) -> Result<(), WorkerError> {
