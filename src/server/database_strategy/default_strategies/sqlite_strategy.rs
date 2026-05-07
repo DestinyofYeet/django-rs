@@ -6,7 +6,7 @@ use crate::{
     models::{
         ColumnType, ColumnValue, Model, ModelIteration,
         column::{CreateColumnOptions, CreateColumnOptionsValues, ModifyColumnOptionsValues},
-        search::{SearchOptions, SearchQuery},
+        search::{SearchConstraint, SearchOptions, SearchQuery},
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
 };
@@ -336,8 +336,9 @@ impl DatabaseStrategy for SqliteStrategy {
         let constraints = query
             .constraints
             .iter()
+            .map(|constraint| T::get_latest_column_name(&constraint.column).unwrap())
             .enumerate()
-            .map(|(count, e)| format!("{} = (?{})", e.column, count + 1))
+            .map(|(count, column)| format!("{} = (?{})", column, count + 1))
             .join(" AND ");
 
         if !constraints.is_empty() {
@@ -398,5 +399,42 @@ impl DatabaseStrategy for SqliteStrategy {
             ColumnValue::Float(value) => format!("{value:.4}"),
             ColumnValue::Date(value) => value.to_rfc3339(),
         }
+    }
+
+    fn remove_model<T: Model>(
+        &self,
+        conn: Self::ConnectionType<'_>,
+        query: SearchQuery,
+    ) -> Result<(), DatabaseStrategyError> {
+        let table_name = T::get_migration().model_name;
+
+        let mut sql = String::new();
+
+        sql += &format!("DELETE FROM {table_name}");
+
+        let constraints = query
+            .constraints
+            .iter()
+            .enumerate()
+            .map(|(count, column)| (count, T::get_latest_column_name(&column.column).unwrap()))
+            .map(|(count, column)| format!("{} = (?{})", column, count + 1))
+            .join(" AND ");
+
+        if !constraints.is_empty() {
+            sql += &format!(" WHERE {constraints}")
+        }
+
+        trace!("Generated sql: {sql}");
+
+        let params = query
+            .constraints
+            .into_iter()
+            .map(|e| Self::match_column_value(&e.value))
+            .collect_vec();
+
+        conn.execute(&sql, params_from_iter(params))
+            .map_err(|e| DatabaseStrategyError::DeleteModel(e.to_string()))?;
+
+        Ok(())
     }
 }

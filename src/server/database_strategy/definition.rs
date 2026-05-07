@@ -25,6 +25,9 @@ pub enum DatabaseStrategyError {
 
     #[error("Failed to search Model: {0}")]
     SearchModel(String),
+
+    #[error("Failed to delete Model: {0}")]
+    DeleteModel(String),
 }
 
 pub trait DatabaseStrategy {
@@ -97,4 +100,10 @@ pub trait DatabaseStrategy {
         conn: Self::ConnectionType<'_>,
         query: SearchQuery,
     ) -> Result<Vec<T>, DatabaseStrategyError>;
+
+    fn remove_model<T: Model>(
+        &self,
+        conn: Self::ConnectionType<'_>,
+        query: SearchQuery,
+    ) -> Result<(), DatabaseStrategyError>;
 }

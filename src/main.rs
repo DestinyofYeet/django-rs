@@ -198,6 +198,14 @@ fn main() -> Result<(), anyhow::Error> {
 
     db.save_model(conn, &mut user)?;
 
+    db.remove_model::<User>(
+        conn,
+        SearchQuery::empty().add_constraint(SearchConstraint::new(
+            "username",
+            ColumnValue::String("roflrofl".to_string()),
+        )),
+    )?;
+
     server.shutdown()?;
 
     Ok(())
