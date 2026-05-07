@@ -254,11 +254,7 @@ impl DatabaseStrategy for SqliteStrategy {
             .iter()
             .filter(|e| e.value.is_some())
             .map(|e| {
-                let value = e.value.as_ref().map(|e| match e {
-                    ColumnValue::String(value) => value.to_string(),
-                    ColumnValue::Integer(value) => format!("{value}"),
-                    ColumnValue::Float(value) => format!("{value:.4}"),
-                });
+                let value = e.value.as_ref().map(|e| Self::match_column_value(e));
 
                 (e.key.clone(), value)
             })
@@ -357,11 +353,7 @@ impl DatabaseStrategy for SqliteStrategy {
         let params = query
             .constraints
             .into_iter()
-            .map(|e| match e.value {
-                ColumnValue::String(value) => value,
-                ColumnValue::Integer(value) => format!("{value}"),
-                ColumnValue::Float(value) => format!("{value:.4}"),
-            })
+            .map(|e| Self::match_column_value(&e.value))
             .collect_vec();
 
         trace!("Generated sql: {sql} | params: {:?}", &params);
@@ -381,7 +373,7 @@ impl DatabaseStrategy for SqliteStrategy {
                             row.get(column.as_str()).map(|e: i64| format!("{e}"))
                         }
                         ColumnType::Float => row.get(column.as_str()).map(|e: f64| format!("{e}")),
-                        ColumnType::Date => todo!(),
+                        ColumnType::Date => row.get(column.as_str()).map(|e: String| e),
                     }
                     .unwrap();
 
@@ -397,5 +389,14 @@ impl DatabaseStrategy for SqliteStrategy {
         trace!("Found {} results", models.len());
 
         Ok(models)
+    }
+
+    fn match_column_value(value: &ColumnValue) -> String {
+        match value {
+            ColumnValue::String(value) => value.clone(),
+            ColumnValue::Integer(value) => format!("{value}"),
+            ColumnValue::Float(value) => format!("{value:.4}"),
+            ColumnValue::Date(value) => value.to_rfc3339(),
+        }
     }
 }

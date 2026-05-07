@@ -1,8 +1,9 @@
+use chrono::{Date, DateTime, Local, Utc};
 use clap::Parser;
 use django_rs::{
     models::{
         ColumnType, ColumnValue, Model, ModelIteration, ModelMigration,
-        column::{CreateColumn, CreateColumnOptions, ModifyColumn, ModifyColumnOptionsValues},
+        column::{CreateColumn, CreateColumnOptions},
         save::SaveModel,
         search::{SearchConstraint, SearchQuery},
     },
@@ -15,7 +16,7 @@ use django_rs::{
         taskrunnable::TaskRunnable,
     },
 };
-use std::{thread, time::Duration};
+use std::{str::FromStr, thread, time::Duration};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
@@ -44,37 +45,35 @@ pub struct User {
     id: Option<i64>,
     username: String,
     email: String,
+    created: DateTime<Utc>,
 }
 
 impl Model for User {
     fn get_migration() -> ModelMigration {
         ModelMigration::new(
             "Users",
-            vec![
-                ModelIteration::Create(vec![
-                    CreateColumn::new(
-                        "id",
-                        ColumnType::Integer,
-                        CreateColumnOptions::default().set_primary_key(),
-                    ),
-                    CreateColumn::new(
-                        "username",
-                        ColumnType::String,
-                        CreateColumnOptions::default().set_non_nullable(),
-                    ),
-                    CreateColumn::new(
-                        "email",
-                        ColumnType::String,
-                        CreateColumnOptions::default().set_non_nullable(),
-                    ),
-                ]),
-                ModelIteration::Modify(vec![ModifyColumn::new(
+            vec![ModelIteration::Create(vec![
+                CreateColumn::new(
+                    "id",
+                    ColumnType::Integer,
+                    CreateColumnOptions::default().set_primary_key(),
+                ),
+                CreateColumn::new(
+                    "username",
+                    ColumnType::String,
+                    CreateColumnOptions::default().set_non_nullable(),
+                ),
+                CreateColumn::new(
                     "email",
-                    ModifyColumnOptionsValues::Rename {
-                        to: "mail".to_string(),
-                    },
-                )]),
-            ],
+                    ColumnType::String,
+                    CreateColumnOptions::default().set_non_nullable(),
+                ),
+                CreateColumn::new(
+                    "created",
+                    ColumnType::Date,
+                    CreateColumnOptions::default().set_non_nullable(),
+                ),
+            ])],
         )
     }
 
@@ -91,6 +90,10 @@ impl Model for User {
             SaveModel::new(
                 Self::get_latest_column_name("id").unwrap(),
                 self.id.map(ColumnValue::Integer),
+            ),
+            SaveModel::new(
+                Self::get_latest_column_name("created").unwrap(),
+                Some(ColumnValue::Date(self.created)),
             ),
         ]
     }
@@ -110,6 +113,7 @@ impl Model for User {
         let mut id: Option<i64> = None;
         let mut username: Option<String> = None;
         let mut email: Option<String> = None;
+        let mut created: Option<DateTime<Utc>> = None;
 
         for (key, value) in iter {
             match value {
@@ -127,6 +131,11 @@ impl Model for User {
                     username = Some(value);
                 }
 
+                String { .. } if matches!(Self::get_latest_column_name("created"), Some(created_col) if created_col == key) =>
+                {
+                    created = DateTime::from_str(&value).ok();
+                }
+
                 _ => {}
             }
         }
@@ -134,11 +143,13 @@ impl Model for User {
         if let Some(id) = id
             && let Some(username) = username
             && let Some(email) = email
+            && let Some(created) = created
         {
             return Some(Self {
                 id: Some(id),
                 username,
                 email,
+                created,
             });
         }
 
@@ -163,8 +174,17 @@ fn main() -> Result<(), anyhow::Error> {
 
     let server = Server::new(8, TracingStrategy {}, SqliteStrategy::new("tmp/db.sqlite"))?;
 
+    let mut user = User {
+        id: None,
+        username: "test".to_string(),
+        email: "test@test.test".to_string(),
+        created: Local::now().to_utc(),
+    };
+
     server.get_database().migrate_model::<User>()?;
     let db = server.get_database();
+    let conn = db.get_connection();
+    db.save_model(conn, &mut user)?;
     let conn = db.get_connection();
     let mut user = db
         .search_single_model::<User>(

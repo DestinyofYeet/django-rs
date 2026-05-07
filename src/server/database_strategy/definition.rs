@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 use crate::models::{
-    ColumnType, Model,
+    ColumnType, ColumnValue, Model,
     column::{CreateColumnOptions, ModifyColumnOptionsValues},
     search::SearchQuery,
 };
@@ -53,6 +53,9 @@ pub trait DatabaseStrategy {
 
     fn match_modify_column_options(value: &ModifyColumnOptionsValues, column_name: &str) -> String;
 
+    /// This function should convert the ColumnValue to the appropriate Database format.
+    fn match_column_value(value: &ColumnValue) -> String;
+
     /// This function should setup the migration table
     fn setup_migration_table(
         &self,
@@ -81,12 +84,14 @@ pub trait DatabaseStrategy {
         model: &mut impl Model,
     ) -> Result<(), DatabaseStrategyError>;
 
+    /// This function will search for a singular model
     fn search_single_model<T: Model>(
         &self,
         conn: Self::ConnectionType<'_>,
         query: SearchQuery,
     ) -> Result<Option<T>, DatabaseStrategyError>;
 
+    /// This function will search for multiple models.
     fn search_multiple_model<T: Model>(
         &self,
         conn: Self::ConnectionType<'_>,

@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use itertools::Itertools;
 
 use crate::models::{
@@ -18,6 +19,7 @@ pub enum ColumnValue {
     String(String),
     Integer(i64),
     Float(f64),
+    Date(DateTime<Utc>),
 }
 
 pub enum ModelIteration {
