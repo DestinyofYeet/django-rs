@@ -7,6 +7,7 @@ use std::{
 
 use thiserror::Error;
 use tracing::{error, warn};
+use uuid::Uuid;
 
 use crate::{
     tasks::logstrategy::{LogStrategy, LogStrategyType},
@@ -153,11 +154,34 @@ impl TaskHandler {
             .sum()
     }
 
-    pub fn create_task(&self, taskable: Runnable) {
+    pub fn create_task(&self, taskable: Runnable) -> Uuid {
         let task = Task::new(taskable, self.logger.clone());
+        let id = task.get_id();
         self.queue
             .lock()
             .expect("to get queue lock")
             .push_back(Arc::new(Mutex::new(task)));
+        id
+    }
+
+    pub fn is_done(&self, task_id: Uuid) -> bool {
+        if self
+            .queue
+            .lock()
+            .expect("to get queue lock")
+            .iter()
+            .find(|e| e.lock().expect("to get task lock").get_id() == task_id)
+            .is_some()
+        {
+            return false;
+        }
+
+        for worker in self.workers.lock().expect("to get worker lock").iter() {
+            if worker.get_task() == Some(task_id) {
+                return false;
+            }
+        }
+
+        true
     }
 }

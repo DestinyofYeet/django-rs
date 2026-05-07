@@ -8,6 +8,7 @@ use std::{
 };
 
 use tracing::trace;
+use uuid::Uuid;
 
 use crate::tasks::{
     task::{Task, TaskState},
@@ -24,7 +25,7 @@ pub struct Worker {
     id: u64,
     handle: RefCell<Option<JoinHandle<()>>>,
     to_thread: Sender<WorkerCommand>,
-    has_task: Arc<Mutex<bool>>,
+    current_task: Arc<Mutex<Option<Uuid>>>,
 }
 
 impl Worker {
@@ -34,9 +35,9 @@ impl Worker {
         tx.send(WorkerCommand::Init)
             .map_err(|e| WorkerError::Channel(e.to_string()))?;
 
-        let has_task = Arc::new(Mutex::new(false));
+        let current_task = Arc::new(Mutex::new(None));
 
-        let has_task1 = has_task.clone();
+        let current_task1 = current_task.clone();
 
         let handle = thread::Builder::new()
             .name(format!("Worker {id}"))
@@ -52,13 +53,13 @@ impl Worker {
 
                             worker_log(&format!("Processing task {}", task.get_id()));
                             {
-                                *has_task.lock().expect("to get lock") = true;
+                                *current_task.lock().expect("to get lock") = Some(task.get_id());
                             }
                             task.set_state(TaskState::Running);
                             task.run(id);
                             task.set_state(TaskState::Done);
                             {
-                                *has_task.lock().expect("to get lock") = false;
+                                *current_task.lock().expect("to get lock") = None;
                             }
                         }
 
@@ -75,7 +76,7 @@ impl Worker {
             id,
             handle: RefCell::new(Some(handle)),
             to_thread: tx,
-            has_task: has_task1,
+            current_task: current_task1,
         })
     }
 
@@ -93,8 +94,8 @@ impl Worker {
         self.send_msg(WorkerCommand::Close)
     }
 
-    pub fn has_task(&self) -> bool {
-        *self.has_task.lock().expect("to get lock")
+    pub fn get_task(&self) -> Option<Uuid> {
+        *self.current_task.lock().expect("to get lock")
     }
 
     pub fn wait_for_join_handle(&self) -> Result<(), WorkerError> {
