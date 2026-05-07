@@ -25,6 +25,7 @@ pub struct TaskHandler {
     queue: Arc<Mutex<VecDeque<Arc<Mutex<Task>>>>>,
     workers: Arc<Mutex<Vec<Worker>>>,
     logger: LogStrategyType,
+    shutdown: Arc<Mutex<bool>>,
 }
 
 impl TaskHandler {
@@ -37,16 +38,19 @@ impl TaskHandler {
             workers_vec.push(Worker::new(id)?)
         }
 
+        let shutdown = Arc::new(Mutex::new(false));
+
         let value = Self {
             logger: Arc::new(logger),
             queue: Arc::new(Mutex::new(VecDeque::new())),
             workers: Arc::new(Mutex::new(workers_vec)),
+            shutdown: shutdown.clone(),
         };
 
         let q1 = value.queue.clone();
         let w1 = value.workers.clone();
 
-        thread::spawn(move || TaskHandler::manage_workers(q1, w1, workers));
+        thread::spawn(move || TaskHandler::manage_workers(q1, w1, workers, shutdown));
 
         Ok(value)
     }
@@ -62,9 +66,18 @@ impl TaskHandler {
         queue: Arc<Mutex<VecDeque<Arc<Mutex<Task>>>>>,
         workers: Arc<Mutex<Vec<Worker>>>,
         max_workers: u64,
-    ) -> ! {
+        shutdown: Arc<Mutex<bool>>,
+    ) {
         let mut current_worker_id = max_workers;
         loop {
+            let shutdown = shutdown.lock().expect("to get shutdown lock");
+
+            if *shutdown {
+                break;
+            }
+
+            drop(shutdown);
+
             let mut queue = queue.lock().expect("to get queue lock");
 
             let existing_workers = TaskHandler::static_get_active_workers(workers.clone()) as u64;
@@ -118,6 +131,8 @@ impl TaskHandler {
     }
 
     pub fn shutdown(self) -> Result<(), TaskError> {
+        *self.shutdown.lock().expect("to get shutdown lock") = true;
+
         loop {
             let queue = self.queue.lock().expect("to get lock");
 
