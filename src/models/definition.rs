@@ -1,6 +1,9 @@
-use std::str::FromStr;
+use itertools::Itertools;
 
-use crate::models::column::{CreateColumn, ModifyColumn, ModifyColumnOptionsValues};
+use crate::models::{
+    column::{CreateColumn, ModifyColumn, ModifyColumnOptionsValues},
+    save::SaveModel,
+};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ColumnType {
@@ -8,6 +11,13 @@ pub enum ColumnType {
     Integer,
     Float,
     Date,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ColumnValue {
+    String(String),
+    Integer(i64),
+    Float(f64),
 }
 
 pub enum ModelIteration {
@@ -29,32 +39,16 @@ impl ModelMigration {
     }
 }
 
-pub enum SaveModelType {
-    String(String),
-    Integer(i64),
-    Float(f64),
-}
-
-pub struct SaveModel {
-    key: String,
-    value: SaveModelType,
-}
-
-impl SaveModel {
-    pub fn new(key: impl ToString, value: SaveModelType) -> Self {
-        Self {
-            key: key.to_string(),
-            value,
-        }
-    }
-}
-
 pub trait Model {
     fn get_migration() -> ModelMigration;
+
+    fn get_id(&self) -> Option<i64>;
+    fn set_id(&mut self, id: i64);
 
     fn get_save_data(&self) -> Vec<SaveModel>;
 
     fn get_latest_column_name(initial_name: &str) -> Option<String> {
+        let mut past_names = vec![initial_name.to_string()];
         let mut name = Some(String::from(initial_name));
 
         for migration in Self::get_migration().data {
@@ -62,8 +56,16 @@ pub trait Model {
                 ModelIteration::Create(_) => {}
                 ModelIteration::Modify(modifiers) => {
                     for modification in modifiers {
+                        if !past_names.contains(&modification.key) {
+                            continue;
+                        }
+
                         match modification.options {
-                            ModifyColumnOptionsValues::Rename { to } => name = Some(to),
+                            ModifyColumnOptionsValues::Rename { to } => {
+                                name = Some(to);
+                                past_names.push(modification.key.clone());
+                            }
+
                             ModifyColumnOptionsValues::Drop => name = None,
                             ModifyColumnOptionsValues::Add {
                                 new_type: _,
@@ -77,4 +79,24 @@ pub trait Model {
 
         name
     }
+
+    fn get_columns() -> Vec<(String, ColumnType)> {
+        let migration = &Self::get_migration().data[0];
+        if let ModelIteration::Create(value) = migration {
+            return value
+                .iter()
+                .map(|e| (Self::get_latest_column_name(&e.key).unwrap(), e.value))
+                .collect_vec();
+        }
+
+        panic!("First migration is not a creation!");
+    }
+
+    fn self_get_migration(&self) -> ModelMigration {
+        Self::get_migration()
+    }
+
+    fn from_iter(iter: impl Iterator<Item = (String, String)>) -> Option<Self>
+    where
+        Self: Sized;
 }

@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 
-use crate::models::ColumnType;
+use crate::models::definition::ColumnType;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum CreateColumnOptionsValues {
-    Nullable,
+    NonNullable,
     PrimaryKey,
     Default(String),
     Unique,
@@ -17,8 +17,8 @@ pub struct CreateColumnOptions {
 }
 impl CreateColumnOptions {
     /// This column can be null (default: false)
-    pub fn set_nullable(mut self) -> Self {
-        self.options.insert(CreateColumnOptionsValues::Nullable);
+    pub fn set_non_nullable(mut self) -> Self {
+        self.options.insert(CreateColumnOptionsValues::NonNullable);
 
         self
     }
@@ -27,7 +27,7 @@ impl CreateColumnOptions {
     /// This implies `set_nullable()`
     /// The type of this column should be `Integer`
     pub fn set_primary_key(mut self) -> Self {
-        self.options.insert(CreateColumnOptionsValues::Nullable);
+        self.options.insert(CreateColumnOptionsValues::NonNullable);
         self.options.insert(CreateColumnOptionsValues::PrimaryKey);
 
         self

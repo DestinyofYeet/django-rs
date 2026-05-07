@@ -3,6 +3,7 @@ use thiserror::Error;
 use crate::models::{
     ColumnType, Model,
     column::{CreateColumnOptions, ModifyColumnOptionsValues},
+    search::SearchQuery,
 };
 
 #[derive(Error, Debug)]
@@ -18,6 +19,12 @@ pub enum DatabaseStrategyError {
 
     #[error("Error: {0}")]
     Error(String),
+
+    #[error("Failed to save Model: {0}")]
+    SaveModel(String),
+
+    #[error("Failed to search Model: {0}")]
+    SearchModel(String),
 }
 
 pub trait DatabaseStrategy {
@@ -71,6 +78,18 @@ pub trait DatabaseStrategy {
     fn save_model(
         &self,
         conn: Self::ConnectionType<'_>,
-        model: impl Model,
+        model: &mut impl Model,
     ) -> Result<(), DatabaseStrategyError>;
+
+    fn search_single_model<T: Model>(
+        &self,
+        conn: Self::ConnectionType<'_>,
+        query: SearchQuery,
+    ) -> Result<Option<T>, DatabaseStrategyError>;
+
+    fn search_multiple_model<T: Model>(
+        &self,
+        conn: Self::ConnectionType<'_>,
+        query: SearchQuery,
+    ) -> Result<Vec<T>, DatabaseStrategyError>;
 }

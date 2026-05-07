@@ -32,6 +32,10 @@ where
         self.database_strategy.clone()
     }
 
+    pub fn get_task_handler(&self) -> &TaskHandler {
+        &self.task_handler
+    }
+
     pub fn shutdown(self) -> Result<(), ServerError> {
         self.task_handler.shutdown()?;
         Ok(())

@@ -1,5 +1,3 @@
-use std::sync::Mutex;
-
 use uuid::Uuid;
 
 use crate::tasks::{logstrategy::LogStrategyType, taskrunnable::TaskRunnable};

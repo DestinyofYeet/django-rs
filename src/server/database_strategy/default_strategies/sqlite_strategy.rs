@@ -1,13 +1,12 @@
-use std::marker::PhantomData;
-
 use itertools::Itertools;
-use rusqlite::{Connection, Transaction, params};
+use rusqlite::{Connection, Transaction, params, params_from_iter};
 use tracing::{debug, info, trace};
 
 use crate::{
     models::{
-        ColumnType, Model, ModelIteration,
+        ColumnType, ColumnValue, Model, ModelIteration,
         column::{CreateColumnOptions, CreateColumnOptionsValues, ModifyColumnOptionsValues},
+        search::{SearchOptions, SearchQuery},
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
 };
@@ -143,7 +142,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
         for option in value.options.iter() {
             match option {
-                CreateColumnOptionsValues::Nullable => {
+                CreateColumnOptionsValues::NonNullable => {
                     options.push("NOT NULL".to_string());
                 }
                 CreateColumnOptionsValues::PrimaryKey => {
@@ -244,8 +243,159 @@ impl DatabaseStrategy for SqliteStrategy {
     fn save_model(
         &self,
         conn: Self::ConnectionType<'_>,
-        model: impl Model,
+        model: &mut impl Model,
     ) -> Result<(), DatabaseStrategyError> {
-        todo!()
+        let data = model.get_save_data();
+        let table_name = model.self_get_migration().model_name;
+
+        let mut sql = String::new();
+
+        let columns_values = data
+            .iter()
+            .filter(|e| e.value.is_some())
+            .map(|e| {
+                let value = e.value.as_ref().map(|e| match e {
+                    ColumnValue::String(value) => value.to_string(),
+                    ColumnValue::Integer(value) => format!("{value}"),
+                    ColumnValue::Float(value) => format!("{value:.4}"),
+                });
+
+                (e.key.clone(), value)
+            })
+            .collect_vec();
+
+        if let Some(model_id) = model.get_id() {
+            let columns_values = columns_values
+                .into_iter()
+                .filter(|(column, _)| column != "id")
+                .collect_vec();
+
+            sql += &format!("UPDATE {table_name} SET ");
+
+            sql += &columns_values
+                .iter()
+                .enumerate()
+                .map(|(index, (column, _))| format!("{column} = (?{})", index + 1))
+                .join(", ");
+
+            sql += &format!(" WHERE id = {}", model_id);
+
+            trace!("Generated update sql: {sql}");
+            conn.execute(
+                &sql,
+                params_from_iter(columns_values.iter().map(|(_, value)| value)),
+            )
+            .map_err(|e| DatabaseStrategyError::SaveModel(e.to_string()))?;
+        } else {
+            sql += &format!(
+                "INSERT INTO {table_name} ({}) VALUES ({})",
+                columns_values.iter().map(|(column, _)| column).join(", "),
+                (1..columns_values.len() + 1)
+                    .map(|i| format!("?{i}"))
+                    .join(", ")
+            );
+
+            sql += " RETURNING id";
+
+            trace!("Generated insert sql: {sql}");
+
+            let id = conn
+                .query_one(
+                    &sql,
+                    params_from_iter(columns_values.iter().map(|(_, value)| value)),
+                    |e| e.get("id").map(|e: i64| e),
+                )
+                .map_err(|e| DatabaseStrategyError::SaveModel(e.to_string()))?;
+
+            model.set_id(id);
+        }
+
+        Ok(())
+    }
+
+    fn search_single_model<T: Model>(
+        &self,
+        conn: Self::ConnectionType<'_>,
+        query: SearchQuery,
+    ) -> Result<Option<T>, DatabaseStrategyError> {
+        let mut models = self.search_multiple_model(conn, query.set_limit(1))?;
+
+        if !models.is_empty() {
+            return Ok(Some(models.remove(0)));
+        }
+
+        Ok(None)
+    }
+
+    fn search_multiple_model<T: Model>(
+        &self,
+        conn: Self::ConnectionType<'_>,
+        query: SearchQuery,
+    ) -> Result<Vec<T>, DatabaseStrategyError> {
+        let mut sql = String::new();
+        let table_name = T::get_migration().model_name;
+
+        sql += &format!("SELECT * FROM {table_name}");
+
+        let constraints = query
+            .constraints
+            .iter()
+            .enumerate()
+            .map(|(count, e)| format!("{} = (?{})", e.column, count + 1))
+            .join(" AND ");
+
+        if !constraints.is_empty() {
+            sql += &format!(" WHERE {constraints}")
+        }
+
+        for options in query.options {
+            match options {
+                SearchOptions::Limit(limit) => sql += &format!(" LIMIT {limit}"),
+            }
+        }
+
+        let params = query
+            .constraints
+            .into_iter()
+            .map(|e| match e.value {
+                ColumnValue::String(value) => value,
+                ColumnValue::Integer(value) => format!("{value}"),
+                ColumnValue::Float(value) => format!("{value:.4}"),
+            })
+            .collect_vec();
+
+        trace!("Generated sql: {sql} | params: {:?}", &params);
+
+        let columns = T::get_columns();
+
+        let mut stmt = conn
+            .prepare(&sql)
+            .map_err(|e| DatabaseStrategyError::Error(e.to_string()))?;
+
+        let rows = stmt
+            .query_map(params_from_iter(params.into_iter()), |row| {
+                let iter = columns.iter().map(|(column, column_type)| {
+                    let value = match column_type {
+                        ColumnType::String => row.get(column.as_str()).map(|e: String| e),
+                        ColumnType::Integer => {
+                            row.get(column.as_str()).map(|e: i64| format!("{e}"))
+                        }
+                        ColumnType::Float => row.get(column.as_str()).map(|e: f64| format!("{e}")),
+                        ColumnType::Date => todo!(),
+                    }
+                    .unwrap();
+
+                    (column.to_string(), value)
+                });
+
+                Ok(T::from_iter(iter))
+            })
+            .map_err(|e| DatabaseStrategyError::SearchModel(e.to_string()))?;
+
+        let models = rows.filter_map(|e| e.unwrap()).collect_vec();
+
+        trace!("Found {} results", models.len());
+
+        Ok(models)
     }
 }
