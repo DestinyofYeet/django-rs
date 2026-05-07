@@ -75,7 +75,7 @@ impl DatabaseStrategy for SqliteStrategy {
                         .iter()
                         .map(|col| {
                             format!(
-                                "    {} {} {}",
+                                "\t{} {}{}",
                                 col.key,
                                 SqliteStrategy::match_column_type(&col.value),
                                 SqliteStrategy::match_create_column_options(&col.options, &col.key)
@@ -85,11 +85,12 @@ impl DatabaseStrategy for SqliteStrategy {
 
                     sql += "\n)";
 
+                    trace!("produced sql: {sql}");
+
                     transaction
                         .execute(&sql, [])
                         .map_err(|e| DatabaseStrategyError::MigrateModel(e.to_string()))?;
 
-                    trace!("produced sql: {sql}");
                     info!("Created table {}", migration_data.model_name);
                 }
                 ModelIteration::Modify(columns) => {
@@ -137,8 +138,10 @@ impl DatabaseStrategy for SqliteStrategy {
         .to_string()
     }
 
-    fn match_create_column_options(value: &CreateColumnOptions, _: &str) -> String {
+    fn match_create_column_options(value: &CreateColumnOptions, column_name: &str) -> String {
         let mut options = Vec::<String>::new();
+
+        let mut prefix_space = true;
 
         for option in value.options.iter() {
             match option {
@@ -157,10 +160,22 @@ impl DatabaseStrategy for SqliteStrategy {
                 CreateColumnOptionsValues::Check(check) => {
                     options.push(format!("CHECK({check})"));
                 }
+                CreateColumnOptionsValues::ForeignKey { table, column } => {
+                    prefix_space = false;
+                    options.push(format!(
+                        ",\n\tFOREIGN KEY ({column_name}) REFERENCES {table}({column})"
+                    ));
+                }
             }
         }
 
-        options.join("  ")
+        let mut options = options.join("  ");
+
+        if prefix_space {
+            options = String::from("  ") + &options;
+        }
+
+        options
     }
 
     fn setup_migration_table(&self, conn: &Connection) -> Result<(), DatabaseStrategyError> {
@@ -254,7 +269,7 @@ impl DatabaseStrategy for SqliteStrategy {
             .iter()
             .filter(|e| e.value.is_some())
             .map(|e| {
-                let value = e.value.as_ref().map(|e| Self::match_column_value(e));
+                let value = e.value.as_ref().map(Self::match_column_value);
 
                 (e.key.clone(), value)
             })
@@ -271,7 +286,7 @@ impl DatabaseStrategy for SqliteStrategy {
             sql += &columns_values
                 .iter()
                 .enumerate()
-                .map(|(index, (column, _))| format!("{column} = (?{})", index + 1))
+                .map(|(index, (column, _))| format!("{column} = ?{}", index + 1))
                 .join(", ");
 
             sql += &format!(" WHERE id = {}", model_id);

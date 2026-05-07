@@ -41,11 +41,92 @@ impl TaskRunnable for PrintTask {
 }
 
 #[derive(Debug)]
+pub struct Group {
+    id: Option<i64>,
+    name: String,
+}
+
+impl Model for Group {
+    fn get_migration() -> ModelMigration {
+        ModelMigration::new(
+            "groups",
+            vec![ModelIteration::Create(vec![
+                CreateColumn::new(
+                    "id",
+                    ColumnType::Integer,
+                    CreateColumnOptions::default().set_primary_key(),
+                ),
+                CreateColumn::new(
+                    "name",
+                    ColumnType::String,
+                    CreateColumnOptions::default()
+                        .set_non_nullable()
+                        .set_unique(),
+                ),
+            ])],
+        )
+    }
+
+    fn get_id(&self) -> Option<i64> {
+        self.id
+    }
+
+    fn set_id(&mut self, id: i64) {
+        self.id = Some(id);
+    }
+
+    fn get_save_data(&self) -> Vec<SaveModel> {
+        vec![
+            SaveModel::new(
+                Self::get_latest_column_name("id").unwrap(),
+                self.id.map(ColumnValue::Integer),
+            ),
+            SaveModel::new(
+                Self::get_latest_column_name("name").unwrap(),
+                Some(ColumnValue::String(self.name.clone())),
+            ),
+        ]
+    }
+
+    fn from_iter(iter: impl Iterator<Item = (String, String)>) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        let mut id: Option<i64> = None;
+        let mut name: Option<String> = None;
+
+        for (key, value) in iter {
+            match value {
+                String { .. } if matches!(Self::get_latest_column_name("id"), Some(id_col) if id_col == key) => {
+                    id = value.parse::<i64>().ok()
+                }
+
+                String { .. } if matches!(Self::get_latest_column_name("name"), Some(name_col) if name_col == key) =>
+                {
+                    name = Some(value);
+                }
+
+                _ => {}
+            }
+        }
+
+        if let Some(id) = id
+            && let Some(name) = name
+        {
+            return Some(Self { id: Some(id), name });
+        }
+
+        None
+    }
+}
+
+#[derive(Debug)]
 pub struct User {
     id: Option<i64>,
     username: String,
     email: String,
     created: DateTime<Utc>,
+    group_id: i64,
 }
 
 impl Model for User {
@@ -73,6 +154,11 @@ impl Model for User {
                     ColumnType::Date,
                     CreateColumnOptions::default().set_non_nullable(),
                 ),
+                CreateColumn::new(
+                    "group_id",
+                    ColumnType::Integer,
+                    CreateColumnOptions::default().set_foreign_key("groups", "id"),
+                ),
             ])],
         )
     }
@@ -95,6 +181,10 @@ impl Model for User {
                 Self::get_latest_column_name("created").unwrap(),
                 Some(ColumnValue::Date(self.created)),
             ),
+            SaveModel::new(
+                Self::get_latest_column_name("group_id").unwrap(),
+                Some(ColumnValue::Integer(self.group_id)),
+            ),
         ]
     }
 
@@ -114,6 +204,7 @@ impl Model for User {
         let mut username: Option<String> = None;
         let mut email: Option<String> = None;
         let mut created: Option<DateTime<Utc>> = None;
+        let mut group_id: Option<i64> = None;
 
         for (key, value) in iter {
             match value {
@@ -136,6 +227,11 @@ impl Model for User {
                     created = DateTime::from_str(&value).ok();
                 }
 
+                String { .. } if matches!(Self::get_latest_column_name("group_id"), Some(group_col) if group_col == key ) =>
+                {
+                    group_id = value.parse().ok();
+                }
+
                 _ => {}
             }
         }
@@ -144,12 +240,14 @@ impl Model for User {
             && let Some(username) = username
             && let Some(email) = email
             && let Some(created) = created
+            && let Some(group_id) = group_id
         {
             return Some(Self {
                 id: Some(id),
                 username,
                 email,
                 created,
+                group_id,
             });
         }
 
@@ -174,16 +272,35 @@ fn main() -> Result<(), anyhow::Error> {
 
     let server = Server::new(8, TracingStrategy {}, SqliteStrategy::new("tmp/db.sqlite"))?;
 
+    let mut group = Group {
+        id: None,
+        name: "Test".to_string(),
+    };
+
+    server.get_database().migrate_model::<Group>()?;
+    server.get_database().migrate_model::<User>()?;
+    let db = server.get_database();
+    let conn = db.get_connection();
+    if let Some(found_group) = db.search_single_model::<Group>(
+        conn,
+        SearchQuery::empty().add_constraint(SearchConstraint::new(
+            "name",
+            ColumnValue::String("Test".to_string()),
+        )),
+    )? {
+        group = found_group;
+    } else {
+        db.save_model(conn, &mut group)?;
+    };
+
     let mut user = User {
         id: None,
         username: "test".to_string(),
         email: "test@test.test".to_string(),
         created: Local::now().to_utc(),
+        group_id: group.id.unwrap(),
     };
 
-    server.get_database().migrate_model::<User>()?;
-    let db = server.get_database();
-    let conn = db.get_connection();
     db.save_model(conn, &mut user)?;
     let conn = db.get_connection();
     let mut user = db
@@ -196,15 +313,17 @@ fn main() -> Result<(), anyhow::Error> {
 
     user.username = "roflrofl".to_string();
 
+    user.group_id = 5;
+
     db.save_model(conn, &mut user)?;
 
-    db.remove_model::<User>(
-        conn,
-        SearchQuery::empty().add_constraint(SearchConstraint::new(
-            "username",
-            ColumnValue::String("roflrofl".to_string()),
-        )),
-    )?;
+    // db.remove_model::<User>(
+    //     conn,
+    //     SearchQuery::empty().add_constraint(SearchConstraint::new(
+    //         "username",
+    //         ColumnValue::String("roflrofl".to_string()),
+    //     )),
+    // )?;
 
     server.shutdown()?;
 

@@ -9,6 +9,7 @@ pub enum CreateColumnOptionsValues {
     Default(String),
     Unique,
     Check(String),
+    ForeignKey { table: String, column: String },
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -58,6 +59,16 @@ impl CreateColumnOptions {
     /// this needs to be called like `set_check("value > 0")`
     pub fn set_check(mut self, value: String) -> Self {
         self.options.insert(CreateColumnOptionsValues::Check(value));
+
+        self
+    }
+
+    /// This column will reference a foreign key
+    pub fn set_foreign_key(mut self, table: impl ToString, column: impl ToString) -> Self {
+        self.options.insert(CreateColumnOptionsValues::ForeignKey {
+            table: table.to_string(),
+            column: column.to_string(),
+        });
 
         self
     }
