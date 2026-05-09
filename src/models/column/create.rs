@@ -14,12 +14,14 @@ pub enum CreateColumnOptionsValues {
 
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct CreateColumnOptions {
-    pub(crate) options: HashSet<CreateColumnOptionsValues>,
+    pub(crate) options: HashSet<(u64, CreateColumnOptionsValues)>,
 }
+
 impl CreateColumnOptions {
     /// This column can be null (default: false)
     pub fn set_non_nullable(mut self) -> Self {
-        self.options.insert(CreateColumnOptionsValues::NonNullable);
+        self.options
+            .insert((0, CreateColumnOptionsValues::NonNullable));
 
         self
     }
@@ -28,8 +30,9 @@ impl CreateColumnOptions {
     /// This implies `set_nullable()`
     /// The type of this column should be `Integer`
     pub fn set_primary_key(mut self) -> Self {
-        self.options.insert(CreateColumnOptionsValues::NonNullable);
-        self.options.insert(CreateColumnOptionsValues::PrimaryKey);
+        self = self.set_non_nullable();
+        self.options
+            .insert((0, CreateColumnOptionsValues::PrimaryKey));
 
         self
     }
@@ -37,14 +40,14 @@ impl CreateColumnOptions {
     /// This column should have a default value (default: None)
     pub fn set_default(mut self, value: String) -> Self {
         self.options
-            .insert(CreateColumnOptionsValues::Default(value));
+            .insert((0, CreateColumnOptionsValues::Default(value)));
 
         self
     }
 
     /// This column should only have unique values (default: false)
     pub fn set_unique(mut self) -> Self {
-        self.options.insert(CreateColumnOptionsValues::Unique);
+        self.options.insert((0, CreateColumnOptionsValues::Unique));
 
         self
     }
@@ -58,17 +61,21 @@ impl CreateColumnOptions {
     /// ```
     /// this needs to be called like `set_check("value > 0")`
     pub fn set_check(mut self, value: String) -> Self {
-        self.options.insert(CreateColumnOptionsValues::Check(value));
+        self.options
+            .insert((0, CreateColumnOptionsValues::Check(value)));
 
         self
     }
 
     /// This column will reference a foreign key
     pub fn set_foreign_key(mut self, table: impl ToString, column: impl ToString) -> Self {
-        self.options.insert(CreateColumnOptionsValues::ForeignKey {
-            table: table.to_string(),
-            column: column.to_string(),
-        });
+        self.options.insert((
+            10,
+            CreateColumnOptionsValues::ForeignKey {
+                table: table.to_string(),
+                column: column.to_string(),
+            },
+        ));
 
         self
     }

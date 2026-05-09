@@ -141,9 +141,7 @@ impl DatabaseStrategy for SqliteStrategy {
     fn match_create_column_options(value: &CreateColumnOptions, column_name: &str) -> String {
         let mut options = Vec::<String>::new();
 
-        let mut prefix_space = true;
-
-        for option in value.options.iter() {
+        for (_, option) in value.options.iter().sorted_by_key(|value| value.0) {
             match option {
                 CreateColumnOptionsValues::NonNullable => {
                     options.push("NOT NULL".to_string());
@@ -161,7 +159,6 @@ impl DatabaseStrategy for SqliteStrategy {
                     options.push(format!("CHECK({check})"));
                 }
                 CreateColumnOptionsValues::ForeignKey { table, column } => {
-                    prefix_space = false;
                     options.push(format!(
                         ",\n\tFOREIGN KEY ({column_name}) REFERENCES {table}({column})"
                     ));
@@ -171,9 +168,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
         let mut options = options.join("  ");
 
-        if prefix_space {
-            options = String::from("  ") + &options;
-        }
+        options = String::from("  ") + &options;
 
         options
     }

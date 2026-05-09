@@ -157,7 +157,9 @@ impl Model for User {
                 CreateColumn::new(
                     "group_id",
                     ColumnType::Integer,
-                    CreateColumnOptions::default().set_foreign_key("groups", "id"),
+                    CreateColumnOptions::default()
+                        // .set_non_nullable()
+                        .set_foreign_key("groups", "id"),
                 ),
             ])],
         )
