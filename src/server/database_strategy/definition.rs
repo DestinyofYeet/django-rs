@@ -1,8 +1,10 @@
+use std::collections::HashSet;
+
 use thiserror::Error;
 
 use crate::models::{
     ColumnType, ColumnValue, Model,
-    column::{CreateColumnOptions, ModifyColumnOptionsValues},
+    column::{CreateOptions, CreateTableOptionValues, ModifyColumnOptionsValues},
     search::SearchQuery,
 };
 
@@ -50,9 +52,16 @@ pub trait DatabaseStrategy {
     /// This function should convert the ColumnType to the appropriate Database type
     fn match_column_type(value: &ColumnType) -> String;
 
-    /// This function should convert the CreateColumnOptions to the appropriate Database syntax.
+    /// This function should convert the column part of CreateOptions to the appropriate Database syntax.
     /// This function should return valid sql
-    fn match_create_column_options(value: &CreateColumnOptions, column_name: &str) -> String;
+    fn match_create_column_options(value: &CreateOptions, column_name: &str) -> String;
+    ///
+    /// This function should convert the table part of CreateOptions to the appropriate Database syntax.
+    /// This function should return valid sql
+    fn match_create_table_options(
+        value: &HashSet<CreateTableOptionValues>,
+        column_name: &str,
+    ) -> String;
 
     fn match_modify_column_options(value: &ModifyColumnOptionsValues, column_name: &str) -> String;
 

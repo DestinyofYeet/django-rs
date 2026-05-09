@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use itertools::Itertools;
 use rusqlite::{Connection, Transaction, params, params_from_iter};
 use tracing::{debug, info, trace};
@@ -5,7 +7,10 @@ use tracing::{debug, info, trace};
 use crate::{
     models::{
         ColumnType, ColumnValue, Model, ModelIteration,
-        column::{CreateColumnOptions, CreateColumnOptionsValues, ModifyColumnOptionsValues},
+        column::{
+            CreateColumnOptionsValues, CreateOptions, CreateTableOptionValues,
+            ModifyColumnOptionsValues,
+        },
         search::{SearchConstraint, SearchOptions, SearchQuery},
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
@@ -75,13 +80,31 @@ impl DatabaseStrategy for SqliteStrategy {
                         .iter()
                         .map(|col| {
                             format!(
-                                "\t{} {}{}",
+                                "\t{} {} {}",
                                 col.key,
                                 SqliteStrategy::match_column_type(&col.value),
                                 SqliteStrategy::match_create_column_options(&col.options, &col.key)
                             )
                         })
                         .join(",\n");
+
+                    let create_table_sql = &columns
+                        .iter()
+                        .filter(|col| !col.options.table_options.is_empty())
+                        .map(|col| {
+                            format!(
+                                "\t{}",
+                                SqliteStrategy::match_create_table_options(
+                                    &col.options.table_options,
+                                    &col.key
+                                )
+                            )
+                        })
+                        .join(",\n");
+
+                    if !create_table_sql.is_empty() {
+                        sql += &format!(",\n{}", create_table_sql);
+                    }
 
                     sql += "\n)";
 
@@ -138,10 +161,10 @@ impl DatabaseStrategy for SqliteStrategy {
         .to_string()
     }
 
-    fn match_create_column_options(value: &CreateColumnOptions, column_name: &str) -> String {
+    fn match_create_column_options(value: &CreateOptions, _column_name: &str) -> String {
         let mut options = Vec::<String>::new();
 
-        for (_, option) in value.options.iter().sorted_by_key(|value| value.0) {
+        for (_, option) in value.column_options.iter().sorted_by_key(|value| value.0) {
             match option {
                 CreateColumnOptionsValues::NonNullable => {
                     options.push("NOT NULL".to_string());
@@ -158,19 +181,10 @@ impl DatabaseStrategy for SqliteStrategy {
                 CreateColumnOptionsValues::Check(check) => {
                     options.push(format!("CHECK({check})"));
                 }
-                CreateColumnOptionsValues::ForeignKey { table, column } => {
-                    options.push(format!(
-                        ",\n\tFOREIGN KEY ({column_name}) REFERENCES {table}({column})"
-                    ));
-                }
             }
         }
 
-        let mut options = options.join("  ");
-
-        options = String::from("  ") + &options;
-
-        options
+        options.join("  ")
     }
 
     fn setup_migration_table(&self, conn: &Connection) -> Result<(), DatabaseStrategyError> {
@@ -446,5 +460,24 @@ impl DatabaseStrategy for SqliteStrategy {
             .map_err(|e| DatabaseStrategyError::DeleteModel(e.to_string()))?;
 
         Ok(())
+    }
+
+    fn match_create_table_options(
+        value: &HashSet<CreateTableOptionValues>,
+        column_name: &str,
+    ) -> String {
+        let mut options = Vec::<String>::new();
+
+        for option in value.iter() {
+            match option {
+                CreateTableOptionValues::ForeignKey { table, column } => {
+                    options.push(format!(
+                        "FOREIGN KEY ({column_name}) REFERENCES {table}({column})"
+                    ));
+                }
+            }
+        }
+
+        options.join(",\n")
     }
 }

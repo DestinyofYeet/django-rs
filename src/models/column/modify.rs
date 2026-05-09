@@ -1,4 +1,4 @@
-use crate::models::{ColumnType, column::CreateColumnOptions};
+use crate::models::{ColumnType, column::CreateOptions};
 
 #[derive(Debug)]
 pub enum ModifyColumnOptionsValues {
@@ -8,7 +8,7 @@ pub enum ModifyColumnOptionsValues {
     Drop,
     Add {
         new_type: ColumnType,
-        new_options: CreateColumnOptions,
+        new_options: CreateOptions,
     },
 }
 

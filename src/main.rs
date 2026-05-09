@@ -3,7 +3,7 @@ use clap::Parser;
 use django_rs::{
     models::{
         ColumnType, ColumnValue, Model, ModelIteration, ModelMigration,
-        column::{CreateColumn, CreateColumnOptions},
+        column::{CreateColumn, CreateOptions},
         save::SaveModel,
         search::{SearchConstraint, SearchQuery},
     },
@@ -54,14 +54,12 @@ impl Model for Group {
                 CreateColumn::new(
                     "id",
                     ColumnType::Integer,
-                    CreateColumnOptions::default().set_primary_key(),
+                    CreateOptions::default().set_primary_key(),
                 ),
                 CreateColumn::new(
                     "name",
                     ColumnType::String,
-                    CreateColumnOptions::default()
-                        .set_non_nullable()
-                        .set_unique(),
+                    CreateOptions::default().set_non_nullable().set_unique(),
                 ),
             ])],
         )
@@ -137,27 +135,27 @@ impl Model for User {
                 CreateColumn::new(
                     "id",
                     ColumnType::Integer,
-                    CreateColumnOptions::default().set_primary_key(),
+                    CreateOptions::default().set_primary_key(),
                 ),
                 CreateColumn::new(
                     "username",
                     ColumnType::String,
-                    CreateColumnOptions::default().set_non_nullable(),
+                    CreateOptions::default().set_non_nullable(),
                 ),
                 CreateColumn::new(
                     "email",
                     ColumnType::String,
-                    CreateColumnOptions::default().set_non_nullable(),
+                    CreateOptions::default().set_non_nullable(),
                 ),
                 CreateColumn::new(
                     "created",
                     ColumnType::Date,
-                    CreateColumnOptions::default().set_non_nullable(),
+                    CreateOptions::default().set_non_nullable(),
                 ),
                 CreateColumn::new(
                     "group_id",
                     ColumnType::Integer,
-                    CreateColumnOptions::default()
+                    CreateOptions::default()
                         // .set_non_nullable()
                         .set_foreign_key("groups", "id"),
                 ),
