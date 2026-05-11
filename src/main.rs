@@ -47,22 +47,21 @@ pub struct Group {
 }
 
 impl Model for Group {
-    fn get_migration() -> ModelMigration {
-        ModelMigration::new(
-            "groups",
-            vec![ModelIteration::Create(vec![
-                CreateColumn::new(
-                    "id",
-                    ColumnType::Integer,
-                    CreateOptions::default().set_primary_key(),
-                ),
-                CreateColumn::new(
-                    "name",
-                    ColumnType::String,
-                    CreateOptions::default().set_non_nullable().set_unique(),
-                ),
-            ])],
-        )
+    const TABLE_NAME: &'static str = "groups";
+
+    fn get_migration() -> Vec<ModelIteration> {
+        vec![ModelIteration::Create(vec![
+            CreateColumn::new(
+                "id",
+                ColumnType::Integer,
+                CreateOptions::default().set_primary_key(),
+            ),
+            CreateColumn::new(
+                "name",
+                ColumnType::String,
+                CreateOptions::default().set_non_nullable().set_unique(),
+            ),
+        ])]
     }
 
     fn get_id(&self) -> Option<i64> {
@@ -81,7 +80,7 @@ impl Model for Group {
             ),
             SaveModel::new(
                 Self::get_latest_column_name("name").unwrap(),
-                Some(ColumnValue::String(self.name.clone())),
+                Some(self.name.as_str()),
             ),
         ]
     }
@@ -128,39 +127,38 @@ pub struct User {
 }
 
 impl Model for User {
-    fn get_migration() -> ModelMigration {
-        ModelMigration::new(
-            "Users",
-            vec![ModelIteration::Create(vec![
-                CreateColumn::new(
-                    "id",
-                    ColumnType::Integer,
-                    CreateOptions::default().set_primary_key(),
-                ),
-                CreateColumn::new(
-                    "username",
-                    ColumnType::String,
-                    CreateOptions::default().set_non_nullable(),
-                ),
-                CreateColumn::new(
-                    "email",
-                    ColumnType::String,
-                    CreateOptions::default().set_non_nullable(),
-                ),
-                CreateColumn::new(
-                    "created",
-                    ColumnType::Date,
-                    CreateOptions::default().set_non_nullable(),
-                ),
-                CreateColumn::new(
-                    "group_id",
-                    ColumnType::Integer,
-                    CreateOptions::default()
-                        // .set_non_nullable()
-                        .set_foreign_key("groups", "id"),
-                ),
-            ])],
-        )
+    const TABLE_NAME: &'static str = "Users";
+
+    fn get_migration() -> Vec<ModelIteration> {
+        vec![ModelIteration::Create(vec![
+            CreateColumn::new(
+                "id",
+                ColumnType::Integer,
+                CreateOptions::default().set_primary_key(),
+            ),
+            CreateColumn::new(
+                "username",
+                ColumnType::String,
+                CreateOptions::default().set_non_nullable(),
+            ),
+            CreateColumn::new(
+                "email",
+                ColumnType::String,
+                CreateOptions::default().set_non_nullable(),
+            ),
+            CreateColumn::new(
+                "created",
+                ColumnType::Date,
+                CreateOptions::default().set_non_nullable(),
+            ),
+            CreateColumn::new(
+                "group_id",
+                ColumnType::Integer,
+                CreateOptions::default()
+                    // .set_non_nullable()
+                    .set_foreign_key("groups", "id"),
+            ),
+        ])]
     }
 
     fn get_save_data(&self) -> Vec<SaveModel> {
@@ -281,13 +279,9 @@ fn main() -> Result<(), anyhow::Error> {
     server.get_database().migrate_model::<User>()?;
     let db = server.get_database();
     let conn = db.get_connection();
-    if let Some(found_group) = db.search_single_model::<Group>(
-        conn,
-        SearchQuery::empty().add_constraint(SearchConstraint::new(
-            "name",
-            ColumnValue::String("Test".to_string()),
-        )),
-    )? {
+    if let Some(found_group) = db
+        .search_single_model::<Group>(conn, SearchQuery::empty().add_constraint(("name", "test")))?
+    {
         group = found_group;
     } else {
         db.save_model(conn, &mut group)?;

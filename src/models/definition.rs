@@ -45,7 +45,9 @@ impl ModelMigration {
 }
 
 pub trait Model {
-    fn get_migration() -> ModelMigration;
+    const TABLE_NAME: &'static str;
+
+    fn get_migration() -> Vec<ModelIteration>;
 
     fn get_id(&self) -> Option<i64>;
     fn set_id(&mut self, id: i64);
@@ -56,7 +58,7 @@ pub trait Model {
         let mut past_names = vec![initial_name.to_string()];
         let mut name = Some(String::from(initial_name));
 
-        for migration in Self::get_migration().data {
+        for migration in Self::get_migration() {
             match migration {
                 ModelIteration::Create(_) => {}
                 ModelIteration::Modify(modifiers) => {
@@ -86,7 +88,7 @@ pub trait Model {
     }
 
     fn get_columns() -> Vec<(String, ColumnType)> {
-        let migration = &Self::get_migration().data[0];
+        let migration = &Self::get_migration()[0];
         if let ModelIteration::Create(value) = migration {
             return value
                 .iter()
@@ -97,8 +99,12 @@ pub trait Model {
         panic!("First migration is not a creation!");
     }
 
-    fn self_get_migration(&self) -> ModelMigration {
+    fn self_get_migration(&self) -> Vec<ModelIteration> {
         Self::get_migration()
+    }
+
+    fn self_get_table_name(&self) -> &'static str {
+        Self::TABLE_NAME
     }
 
     fn from_iter(iter: impl Iterator<Item = (String, String)>) -> Option<Self>

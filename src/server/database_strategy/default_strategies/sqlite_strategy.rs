@@ -38,9 +38,9 @@ impl DatabaseStrategy for SqliteStrategy {
     fn migrate_model<M: Model>(&self) -> Result<(), DatabaseStrategyError> {
         let migration_data = M::get_migration();
 
-        let table_name = &migration_data.model_name;
+        let table_name = M::TABLE_NAME;
 
-        if migration_data.data.is_empty() {
+        if migration_data.is_empty() {
             return Err(DatabaseStrategyError::MigrateModel(format!(
                 "Migration for model {} needs to have at least one migration!",
                 table_name
@@ -51,7 +51,7 @@ impl DatabaseStrategy for SqliteStrategy {
             Transaction::new_unchecked(&self.conn, rusqlite::TransactionBehavior::Deferred)
                 .map_err(|e| DatabaseStrategyError::Transaction(e.to_string()))?;
 
-        for (count, migration) in migration_data.data.iter().enumerate() {
+        for (count, migration) in migration_data.iter().enumerate() {
             self.setup_migration_table(self.get_connection())?;
             if let Some(migration) = self.get_last_migration(&transaction, table_name)?
                 && migration >= count as i64
@@ -114,7 +114,7 @@ impl DatabaseStrategy for SqliteStrategy {
                         .execute(&sql, [])
                         .map_err(|e| DatabaseStrategyError::MigrateModel(e.to_string()))?;
 
-                    info!("Created table {}", migration_data.model_name);
+                    info!("Created table {}", M::TABLE_NAME);
                 }
                 ModelIteration::Modify(columns) => {
                     for col in columns {
@@ -270,7 +270,7 @@ impl DatabaseStrategy for SqliteStrategy {
         model: &mut impl Model,
     ) -> Result<(), DatabaseStrategyError> {
         let data = model.get_save_data();
-        let table_name = model.self_get_migration().model_name;
+        let table_name = model.self_get_table_name();
 
         let mut sql = String::new();
 
@@ -353,7 +353,7 @@ impl DatabaseStrategy for SqliteStrategy {
         query: SearchQuery,
     ) -> Result<Vec<T>, DatabaseStrategyError> {
         let mut sql = String::new();
-        let table_name = T::get_migration().model_name;
+        let table_name = T::TABLE_NAME;
 
         sql += &format!("SELECT * FROM {table_name}");
 
@@ -430,7 +430,7 @@ impl DatabaseStrategy for SqliteStrategy {
         conn: Self::ConnectionType<'_>,
         query: SearchQuery,
     ) -> Result<(), DatabaseStrategyError> {
-        let table_name = T::get_migration().model_name;
+        let table_name = T::TABLE_NAME;
 
         let mut sql = String::new();
 

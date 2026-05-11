@@ -7,10 +7,13 @@ pub struct SaveModel {
 }
 
 impl SaveModel {
-    pub fn new(key: impl ToString, value: Option<ColumnValue>) -> Self {
+    pub fn new<T>(key: impl ToString, value: Option<T>) -> Self
+    where
+        T: Into<ColumnValue>,
+    {
         Self {
             key: key.to_string(),
-            value,
+            value: value.map(|e| e.into()),
         }
     }
 }

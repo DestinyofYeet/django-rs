@@ -36,8 +36,8 @@ impl SearchQuery {
         }
     }
 
-    pub fn add_constraint(mut self, constraint: SearchConstraint) -> Self {
-        self.constraints.push(constraint);
+    pub fn add_constraint(mut self, constraint: impl Into<SearchConstraint>) -> Self {
+        self.constraints.push(constraint.into());
         self
     }
 
