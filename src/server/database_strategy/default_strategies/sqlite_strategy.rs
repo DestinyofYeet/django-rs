@@ -310,6 +310,7 @@ impl DatabaseStrategy for SqliteStrategy {
             )
             .map_err(|e| DatabaseStrategyError::SaveModel(e.to_string()))?;
         } else {
+            trace!("columns: {:?}", columns_values);
             sql += &format!(
                 "INSERT INTO {table_name} ({}) VALUES ({})",
                 columns_values.iter().map(|(column, _)| column).join(", "),
