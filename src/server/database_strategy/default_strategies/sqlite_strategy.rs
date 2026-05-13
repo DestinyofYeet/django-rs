@@ -11,7 +11,7 @@ use crate::{
             CreateColumnOptionsValues, CreateOptions, CreateTableOptionValues,
             ModifyColumnOptionsValues,
         },
-        search::{SearchConstraint, SearchOptions, SearchQuery},
+        search::{SearchConstraint, SearchOptions, SearchQuery, SearchSelectOptions},
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
 };
@@ -355,7 +355,25 @@ impl DatabaseStrategy for SqliteStrategy {
         let mut sql = String::new();
         let table_name = T::TABLE_NAME;
 
-        sql += &format!("SELECT * FROM {table_name}");
+        let select_string = {
+            let mut sql = String::new();
+
+            for (_, options) in query.select_options.iter().sorted_by_key(|(key, _)| key) {
+                match options {
+                    SearchSelectOptions::Min => sql = format!("MIN({sql})"),
+                    SearchSelectOptions::Max => sql = format!("MAX({sql})"),
+                    SearchSelectOptions::Columns(items) => sql += &items.join(", "),
+                }
+            }
+
+            if sql.is_empty() {
+                sql = String::from("*");
+            }
+
+            sql
+        };
+
+        sql += &format!("SELECT {select_string} FROM {table_name}");
 
         let constraints = query
             .constraints
@@ -369,7 +387,7 @@ impl DatabaseStrategy for SqliteStrategy {
             sql += &format!(" WHERE {constraints}")
         }
 
-        for options in query.options {
+        for options in query.post_options {
             match options {
                 SearchOptions::Limit(limit) => sql += &format!(" LIMIT {limit}"),
             }

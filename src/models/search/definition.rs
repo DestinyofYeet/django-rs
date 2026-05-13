@@ -22,17 +22,26 @@ pub enum SearchOptions {
     Limit(i64),
 }
 
+#[derive(Eq, Hash, PartialEq, Debug)]
+pub enum SearchSelectOptions {
+    Min,
+    Max,
+    Columns(Vec<String>),
+}
+
 #[derive(Debug)]
 pub struct SearchQuery {
     pub(crate) constraints: Vec<SearchConstraint>,
-    pub(crate) options: HashSet<SearchOptions>,
+    pub(crate) post_options: HashSet<SearchOptions>,
+    pub(crate) select_options: HashSet<(u8, SearchSelectOptions)>,
 }
 
 impl SearchQuery {
     pub fn empty() -> Self {
         Self {
             constraints: Vec::new(),
-            options: HashSet::new(),
+            post_options: HashSet::new(),
+            select_options: HashSet::new(),
         }
     }
 
@@ -42,7 +51,23 @@ impl SearchQuery {
     }
 
     pub fn set_limit(mut self, limit: i64) -> Self {
-        self.options.insert(SearchOptions::Limit(limit));
+        self.post_options.insert(SearchOptions::Limit(limit));
+        self
+    }
+
+    pub fn select_min(mut self) -> Self {
+        self.select_options.insert((1, SearchSelectOptions::Min));
+        self
+    }
+
+    pub fn select_max(mut self) -> Self {
+        self.select_options.insert((1, SearchSelectOptions::Max));
+        self
+    }
+
+    pub fn select_columns(mut self, columns: Vec<String>) -> Self {
+        self.select_options
+            .insert((0, SearchSelectOptions::Columns(columns)));
         self
     }
 }
