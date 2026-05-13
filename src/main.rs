@@ -1,8 +1,8 @@
-use chrono::{Date, DateTime, Local, Utc};
+use chrono::{DateTime, Local, Utc};
 use clap::Parser;
 use django_rs::{
     models::{
-        ColumnType, ColumnValue, Model, ModelIteration, ModelMigration,
+        ColumnType, ColumnValue, Model, ModelIteration,
         column::{CreateColumn, CreateOptions},
         save::SaveModel,
         search::{SearchConstraint, SearchQuery},
