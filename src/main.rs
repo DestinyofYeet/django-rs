@@ -9,7 +9,9 @@ use django_rs::{
     },
     server::{
         Server,
-        database_strategy::{DatabaseStrategy, default_strategies::SqliteStrategy},
+        database_strategy::{
+            DatabaseStrategy, TransactionOptions, default_strategies::SqliteStrategy,
+        },
     },
     tasks::{
         logstrategy::{LogStrategyType, default_strategies::tracing_strategy::TracingStrategy},
@@ -319,7 +321,22 @@ fn main() -> Result<(), anyhow::Error> {
     //     )),
     // )?;
 
+    test(&server);
+
     server.shutdown()?;
 
     Ok(())
+}
+
+fn test<D>(server: &Server<D>)
+where
+    D: DatabaseStrategy,
+{
+    let db = server.get_database();
+    let conn = db.get_connection();
+    let tx = db.get_transaction();
+
+    db.table_exists(&tx, "hi").unwrap();
+    db.manage_transaction(tx, TransactionOptions::Commit)
+        .unwrap();
 }

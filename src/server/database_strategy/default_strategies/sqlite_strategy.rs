@@ -11,11 +11,9 @@ use crate::{
             CreateColumnOptionsValues, CreateOptions, CreateTableOptionValues,
             ModifyColumnOptionsValues,
         },
-        search::{
-            SearchConstraint, SearchOptions, SearchOrderByOptions, SearchQuery, SearchSelectOptions,
-        },
+        search::{SearchOptions, SearchOrderByOptions, SearchQuery, SearchSelectOptions},
     },
-    server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
+    server::database_strategy::{DatabaseStrategy, DatabaseStrategyError, TransactionOptions},
 };
 
 pub struct SqliteStrategy {
@@ -31,15 +29,15 @@ impl SqliteStrategy {
 }
 
 impl DatabaseStrategy for SqliteStrategy {
-    type ConnectionType<'a> = &'a Connection;
-    type TransactionType<'a> = Box<Transaction<'a>>;
+    type ConnectionType<'a> = Connection;
+    type TransactionType<'a> = Transaction<'a>;
 
-    fn get_connection(&self) -> Self::ConnectionType<'_> {
+    fn get_connection(&self) -> &Self::ConnectionType<'_> {
         &self.conn
     }
 
     fn get_transaction(&self) -> Self::TransactionType<'_> {
-        Box::new(self.conn.unchecked_transaction().unwrap())
+        self.conn.unchecked_transaction().unwrap()
     }
 
     fn migrate_model<M: Model>(&self) -> Result<(), DatabaseStrategyError> {
@@ -54,12 +52,10 @@ impl DatabaseStrategy for SqliteStrategy {
             )));
         }
 
-        let transaction =
-            Transaction::new_unchecked(&self.conn, rusqlite::TransactionBehavior::Deferred)
-                .map_err(|e| DatabaseStrategyError::Transaction(e.to_string()))?;
+        let transaction = self.get_transaction();
 
         for (count, migration) in migration_data.iter().enumerate() {
-            self.setup_migration_table(self.get_connection())?;
+            self.setup_migration_table(&transaction)?;
             if let Some(migration) = self.get_last_migration(&transaction, table_name)?
                 && migration >= count as i64
             {
@@ -151,7 +147,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
     fn table_exists(
         &self,
-        conn: &Connection,
+        conn: &Self::ConnectionType<'_>,
         table_name: &str,
     ) -> Result<bool, DatabaseStrategyError> {
         conn.table_exists(None, table_name)
@@ -273,7 +269,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
     fn save_model(
         &self,
-        conn: Self::ConnectionType<'_>,
+        conn: &Self::ConnectionType<'_>,
         model: &mut impl Model,
     ) -> Result<(), DatabaseStrategyError> {
         let data = model.get_save_data();
@@ -342,7 +338,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
     fn search_single_model<T: Model>(
         &self,
-        conn: Self::ConnectionType<'_>,
+        conn: &Self::ConnectionType<'_>,
         query: SearchQuery,
     ) -> Result<Option<T>, DatabaseStrategyError> {
         let mut models = self.search_multiple_model(conn, query.set_limit(1))?;
@@ -356,7 +352,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
     fn search_multiple_model<T: Model>(
         &self,
-        conn: Self::ConnectionType<'_>,
+        conn: &Self::ConnectionType<'_>,
         query: SearchQuery,
     ) -> Result<Vec<T>, DatabaseStrategyError> {
         let mut sql = String::new();
@@ -471,7 +467,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
     fn remove_model<T: Model>(
         &self,
-        conn: Self::ConnectionType<'_>,
+        conn: &Self::ConnectionType<'_>,
         query: SearchQuery,
     ) -> Result<(), DatabaseStrategyError> {
         let table_name = T::TABLE_NAME;
@@ -523,5 +519,19 @@ impl DatabaseStrategy for SqliteStrategy {
         }
 
         options.join(",\n")
+    }
+
+    fn manage_transaction(
+        &self,
+        conn: Self::TransactionType<'_>,
+        options: TransactionOptions,
+    ) -> Result<(), DatabaseStrategyError> {
+        match options {
+            TransactionOptions::Commit => conn.commit(),
+            TransactionOptions::Rollback => conn.rollback(),
+        }
+        .map_err(|e| DatabaseStrategyError::Transaction(e.to_string()))?;
+
+        Ok(())
     }
 }
