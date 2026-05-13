@@ -390,7 +390,7 @@ impl DatabaseStrategy for SqliteStrategy {
             sql += &format!(" WHERE {constraints}")
         }
 
-        for options in query.post_options {
+        for (_, options) in query.post_options.iter().sorted_by_key(|(ord, _)| ord) {
             match options {
                 SearchOptions::Limit(limit) => sql += &format!(" LIMIT {limit}"),
                 SearchOptions::OrderBy(value) => {

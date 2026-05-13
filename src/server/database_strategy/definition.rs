@@ -1,6 +1,5 @@
 use std::{collections::HashSet, ops::Deref};
 
-use rusqlite::Connection;
 use thiserror::Error;
 
 use crate::models::{

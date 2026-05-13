@@ -41,7 +41,7 @@ pub enum SearchSelectOptions {
 #[derive(Debug)]
 pub struct SearchQuery {
     pub(crate) constraints: Vec<SearchConstraint>,
-    pub(crate) post_options: HashSet<SearchOptions>,
+    pub(crate) post_options: HashSet<(u8, SearchOptions)>,
     pub(crate) select_options: HashSet<(u8, SearchSelectOptions)>,
 }
 
@@ -60,7 +60,7 @@ impl SearchQuery {
     }
 
     pub fn set_limit(mut self, limit: i64) -> Self {
-        self.post_options.insert(SearchOptions::Limit(limit));
+        self.post_options.insert((10, SearchOptions::Limit(limit)));
         self
     }
 
@@ -84,11 +84,14 @@ impl SearchQuery {
         mut self,
         order_by: Vec<(impl ToString, Option<SearchOrderByOptions>)>,
     ) -> Self {
-        self.post_options.insert(SearchOptions::OrderBy(
-            order_by
-                .into_iter()
-                .map(|(key, option)| (key.to_string(), option))
-                .collect_vec(),
+        self.post_options.insert((
+            0,
+            SearchOptions::OrderBy(
+                order_by
+                    .into_iter()
+                    .map(|(key, option)| (key.to_string(), option))
+                    .collect_vec(),
+            ),
         ));
         self
     }
