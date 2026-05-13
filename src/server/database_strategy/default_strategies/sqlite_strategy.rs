@@ -32,9 +32,14 @@ impl SqliteStrategy {
 
 impl DatabaseStrategy for SqliteStrategy {
     type ConnectionType<'a> = &'a Connection;
+    type TransactionType<'a> = Box<Transaction<'a>>;
 
     fn get_connection(&self) -> Self::ConnectionType<'_> {
         &self.conn
+    }
+
+    fn get_transaction(&self) -> Self::TransactionType<'_> {
+        Box::new(self.conn.unchecked_transaction().unwrap())
     }
 
     fn migrate_model<M: Model>(&self) -> Result<(), DatabaseStrategyError> {

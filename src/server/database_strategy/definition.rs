@@ -37,7 +37,12 @@ pub trait DatabaseStrategy {
     where
         Self: 'a;
 
+    type TransactionType<'a>
+    where
+        Self: 'a;
+
     fn get_connection(&self) -> Self::ConnectionType<'_>;
+    fn get_transaction(&self) -> Self::TransactionType<'_>;
 
     /// This function should tell if a table exists
     fn table_exists(

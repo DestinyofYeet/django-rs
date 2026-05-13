@@ -296,10 +296,10 @@ fn main() -> Result<(), anyhow::Error> {
     };
 
     db.save_model(conn, &mut user)?;
-    let conn = db.get_connection();
+    let conn = db.get_transaction();
     let mut user = db
         .search_single_model::<User>(
-            conn,
+            &*conn,
             SearchQuery::empty()
                 .add_constraint(SearchConstraint::new("id", ColumnValue::Integer(1))),
         )?
@@ -309,7 +309,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     user.group_id = 5;
 
-    db.save_model(conn, &mut user)?;
+    db.save_model(&*conn, &mut user)?;
 
     // db.remove_model::<User>(
     //     conn,
