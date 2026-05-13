@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use itertools::Itertools;
+
 use crate::models::definition::ColumnValue;
 
 #[derive(Debug)]
@@ -20,6 +22,13 @@ impl SearchConstraint {
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub enum SearchOptions {
     Limit(i64),
+    OrderBy(Vec<(String, Option<SearchOrderByOptions>)>),
+}
+
+#[derive(Eq, Hash, PartialEq, Debug)]
+pub enum SearchOrderByOptions {
+    Asc,
+    Desc,
 }
 
 #[derive(Eq, Hash, PartialEq, Debug)]
@@ -68,6 +77,19 @@ impl SearchQuery {
     pub fn select_columns(mut self, columns: Vec<String>) -> Self {
         self.select_options
             .insert((0, SearchSelectOptions::Columns(columns)));
+        self
+    }
+
+    pub fn add_order_by(
+        mut self,
+        order_by: Vec<(impl ToString, Option<SearchOrderByOptions>)>,
+    ) -> Self {
+        self.post_options.insert(SearchOptions::OrderBy(
+            order_by
+                .into_iter()
+                .map(|(key, option)| (key.to_string(), option))
+                .collect_vec(),
+        ));
         self
     }
 }

@@ -11,7 +11,9 @@ use crate::{
             CreateColumnOptionsValues, CreateOptions, CreateTableOptionValues,
             ModifyColumnOptionsValues,
         },
-        search::{SearchConstraint, SearchOptions, SearchQuery, SearchSelectOptions},
+        search::{
+            SearchConstraint, SearchOptions, SearchOrderByOptions, SearchQuery, SearchSelectOptions,
+        },
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
 };
@@ -390,6 +392,25 @@ impl DatabaseStrategy for SqliteStrategy {
         for options in query.post_options {
             match options {
                 SearchOptions::Limit(limit) => sql += &format!(" LIMIT {limit}"),
+                SearchOptions::OrderBy(value) => {
+                    sql += &format!(" {} ", "Order by");
+                    sql += &value
+                        .iter()
+                        .map(|(column, option)| {
+                            let mut string = T::get_latest_column_name(column).unwrap();
+                            if let Some(option) = option {
+                                let option = match option {
+                                    SearchOrderByOptions::Asc => "ASC",
+                                    SearchOrderByOptions::Desc => "DESC",
+                                };
+
+                                string += &format!(" {option}");
+                            }
+
+                            string
+                        })
+                        .join(",")
+                }
             }
         }
 
