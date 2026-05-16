@@ -1,8 +1,8 @@
-use std::collections::HashSet;
+use std::{any::type_name, collections::HashSet};
 
 use itertools::Itertools;
 use rusqlite::{Connection, Transaction, params, params_from_iter};
-use tracing::{debug, info, trace};
+use tracing::{debug, error, info, trace};
 
 use crate::{
     models::{
@@ -440,8 +440,18 @@ impl DatabaseStrategy for SqliteStrategy {
                         }
                         ColumnType::Float => row.get(column.as_str()).map(|e: f64| format!("{e}")),
                         ColumnType::Date => row.get(column.as_str()).map(|e: String| e),
-                    }
-                    .unwrap();
+                    };
+
+                    let value = match value {
+                        Ok(value) => value,
+                        Err(e) => {
+                            error!(
+                                "Expected Column {column} with type {column_type:?} on Model {}, error: {e:?}",
+                                type_name::<T>()
+                            );
+                            panic!("Invalid column");
+                        }
+                    };
 
                     (column.to_string(), value)
                 });
