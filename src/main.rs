@@ -5,7 +5,7 @@ use django_rs::{
         Model, ModelIteration,
         column::{ColumnType, ColumnValue, CreateColumn, CreateOptions},
         save::SaveModel,
-        search::{SearchConstraint, SearchQuery},
+        search::{SearchQuery, operator::SearchOp},
     },
     server::{
         Server,
@@ -302,8 +302,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut user = db
         .search_single_model::<User>(
             &*conn,
-            SearchQuery::empty()
-                .add_constraint(SearchConstraint::new("id", ColumnValue::Integer(1))),
+            SearchQuery::empty().add_constraint(("id", ColumnValue::Integer(1))),
         )?
         .unwrap();
 

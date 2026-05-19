@@ -5,9 +5,3 @@ impl From<i64> for ColumnValue {
         ColumnValue::Integer(value)
     }
 }
-
-impl From<f64> for ColumnValue {
-    fn from(value: f64) -> Self {
-        Self::Float(value)
-    }
-}

@@ -2,17 +2,19 @@ use std::collections::HashSet;
 
 use itertools::Itertools;
 
-use crate::models::column::ColumnValue;
+use crate::models::{column::ColumnValue, search::operator::SearchOp};
 
 #[derive(Debug)]
 pub struct SearchConstraint {
     pub(crate) column: String,
+    pub(crate) operator: SearchOp,
     pub(crate) value: ColumnValue,
 }
 
 impl SearchConstraint {
-    pub fn new(column: impl ToString, value: ColumnValue) -> Self {
+    pub fn new(column: impl ToString, operator: SearchOp, value: ColumnValue) -> Self {
         Self {
+            operator,
             column: column.to_string(),
             value,
         }

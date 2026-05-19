@@ -382,9 +382,21 @@ impl DatabaseStrategy for SqliteStrategy {
         let constraints = query
             .constraints
             .iter()
-            .map(|constraint| T::get_latest_column_name(&constraint.column).unwrap())
+            .map(|constraint| {
+                (
+                    constraint,
+                    T::get_latest_column_name(&constraint.column).unwrap(),
+                )
+            })
             .enumerate()
-            .map(|(count, column)| format!("{} = (?{})", column, count + 1))
+            .map(|(count, (constraint, column))| {
+                format!(
+                    "{} {} (?{})",
+                    column,
+                    constraint.operator.to_string(),
+                    count + 1
+                )
+            })
             .join(" AND ");
 
         if !constraints.is_empty() {

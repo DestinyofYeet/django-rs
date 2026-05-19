@@ -1,5 +1,4 @@
 mod definition;
-mod from;
-pub mod operator;
+mod impl_from;
 
 pub use definition::*;
