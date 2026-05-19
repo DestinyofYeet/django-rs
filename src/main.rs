@@ -281,9 +281,11 @@ fn main() -> Result<(), anyhow::Error> {
     server.get_database().migrate_model::<User>()?;
     let db = server.get_database();
     let conn = db.get_connection();
-    if let Some(found_group) = db
-        .search_single_model::<Group>(conn, SearchQuery::empty().add_constraint(("name", "test")))?
-    {
+
+    if let Some(found_group) = db.search_single_model::<Group>(
+        conn,
+        SearchQuery::empty().add_constraint(("name", &group.name)),
+    )? {
         group = found_group;
     } else {
         db.save_model(conn, &mut group)?;
@@ -319,6 +321,8 @@ fn main() -> Result<(), anyhow::Error> {
     //         ColumnValue::String("roflrofl".to_string()),
     //     )),
     // )?;
+
+    drop(conn);
 
     test(&server);
 

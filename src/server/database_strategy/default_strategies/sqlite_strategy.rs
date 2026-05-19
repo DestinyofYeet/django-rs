@@ -478,7 +478,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
                 });
 
-                match iter.clone().all(|(_, value)| value.is_none()) {
+                match iter.clone().all(|(_, value)| value.is_some()) {
                     true => {
                         Ok(T::from_iter(iter.map(|(col, value)| (col, value.unwrap()))))
                     },
