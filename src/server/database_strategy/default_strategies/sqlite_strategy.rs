@@ -6,10 +6,10 @@ use tracing::{debug, error, info, trace};
 
 use crate::{
     models::{
-        ColumnType, ColumnValue, Model, ModelIteration,
+        Model, ModelIteration,
         column::{
-            CreateColumnOptionsValues, CreateOptions, CreateTableOptionValues,
-            ModifyColumnOptionsValues,
+            ColumnType, ColumnValue, CreateColumnOptionsValues, CreateOptions,
+            CreateTableOptionValues, ModifyColumnOptionsValues,
         },
         search::{SearchOptions, SearchOrderByOptions, SearchQuery, SearchSelectOptions},
     },
@@ -443,20 +443,29 @@ impl DatabaseStrategy for SqliteStrategy {
                     };
 
                     let value = match value {
-                        Ok(value) => value,
+                        Ok(value) => Some(value),
                         Err(e) => {
                             error!(
                                 "Expected Column {column} with type {column_type:?} on Model {}, error: {e:?}",
                                 type_name::<T>()
                             );
-                            panic!("Invalid column");
+                            None
                         }
                     };
 
                     (column.to_string(), value)
+
                 });
 
-                Ok(T::from_iter(iter))
+                match iter.clone().all(|(_, value)| value.is_none()) {
+                    true => {
+                        Ok(T::from_iter(iter.map(|(col, value)| (col, value.unwrap()))))
+                    },
+                    false => {
+                        Ok(None)
+                    }
+                }
+
             })
             .map_err(|e| DatabaseStrategyError::SearchModel(e.to_string()))?;
 

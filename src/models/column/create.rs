@@ -1,6 +1,5 @@
+use crate::models::column::ColumnType;
 use std::collections::HashSet;
-
-use crate::models::definition::ColumnType;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum CreateColumnOptionsValues {

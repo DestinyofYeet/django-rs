@@ -1,9 +1,11 @@
+use crate::models::column::ColumnType;
+use crate::models::column::ColumnValue;
 use std::{collections::HashSet, ops::Deref};
 
 use thiserror::Error;
 
 use crate::models::{
-    ColumnType, ColumnValue, Model,
+    Model,
     column::{CreateOptions, CreateTableOptionValues, ModifyColumnOptionsValues},
     search::SearchQuery,
 };

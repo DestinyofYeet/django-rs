@@ -1,26 +1,9 @@
-use chrono::{DateTime, Utc};
 use itertools::Itertools;
 
 use crate::models::{
-    column::{CreateColumn, ModifyColumn, ModifyColumnOptionsValues},
+    column::{ColumnType, CreateColumn, ModifyColumn, ModifyColumnOptionsValues},
     save::SaveModel,
 };
-
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub enum ColumnType {
-    String,
-    Integer,
-    Float,
-    Date,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ColumnValue {
-    String(String),
-    Integer(i64),
-    Float(f64),
-    Date(DateTime<Utc>),
-}
 
 pub enum ModelIteration {
     Create(Vec<CreateColumn>),

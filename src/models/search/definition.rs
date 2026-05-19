@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use itertools::Itertools;
 
-use crate::models::definition::ColumnValue;
+use crate::models::column::ColumnValue;
 
 #[derive(Debug)]
 pub struct SearchConstraint {

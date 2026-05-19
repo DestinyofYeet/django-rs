@@ -1,4 +1,4 @@
-use crate::models::definition::ColumnValue;
+use crate::models::column::ColumnValue;
 
 #[derive(Debug)]
 pub struct SaveModel {

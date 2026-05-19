@@ -1,4 +1,4 @@
-use crate::models::{ColumnValue, search::SearchConstraint};
+use crate::models::{column::ColumnValue, search::SearchConstraint};
 
 impl<T> From<(&str, T)> for SearchConstraint
 where
