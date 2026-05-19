@@ -1,4 +1,7 @@
-use std::{any::type_name, collections::HashSet};
+use std::{
+    any::{type_name, type_name_of_val},
+    collections::HashSet,
+};
 
 use itertools::Itertools;
 use rusqlite::{Connection, Transaction, params, params_from_iter};
@@ -308,7 +311,10 @@ impl DatabaseStrategy for SqliteStrategy {
                 &sql,
                 params_from_iter(columns_values.iter().map(|(_, value)| value)),
             )
-            .map_err(|e| DatabaseStrategyError::SaveModel(e.to_string()))?;
+            .map_err(|e| DatabaseStrategyError::SaveModel {
+                err: e.to_string(),
+                model: type_name_of_val(model),
+            })?;
         } else {
             trace!("columns: {:?}", columns_values);
             sql += &format!(
@@ -329,7 +335,10 @@ impl DatabaseStrategy for SqliteStrategy {
                     params_from_iter(columns_values.iter().map(|(_, value)| value)),
                     |e| e.get("id").map(|e: i64| e),
                 )
-                .map_err(|e| DatabaseStrategyError::SaveModel(e.to_string()))?;
+                .map_err(|e| DatabaseStrategyError::SaveModel {
+                    err: e.to_string(),
+                    model: type_name_of_val(model),
+                })?;
 
             model.set_id(id);
         }
@@ -474,6 +483,7 @@ impl DatabaseStrategy for SqliteStrategy {
                         Ok(T::from_iter(iter.map(|(col, value)| (col, value.unwrap()))))
                     },
                     false => {
+                        trace!("Failed to test for all Some() values");
                         Ok(None)
                     }
                 }

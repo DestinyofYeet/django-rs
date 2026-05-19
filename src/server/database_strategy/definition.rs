@@ -29,8 +29,8 @@ pub enum DatabaseStrategyError {
     #[error("Error: {0}")]
     Error(String),
 
-    #[error("Failed to save Model: {0}")]
-    SaveModel(String),
+    #[error("Failed to save Model <{}>: {}", .model, .err)]
+    SaveModel { err: String, model: &'static str },
 
     #[error("Failed to search Model: {0}")]
     SearchModel(String),
