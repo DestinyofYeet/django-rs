@@ -1,11 +1,12 @@
 use crate::models::column::ColumnType;
 use crate::models::column::ColumnValue;
+use crate::models::traits::from_iter::FromIter;
+use crate::models::traits::model::Model;
 use std::{collections::HashSet, ops::Deref};
 
 use thiserror::Error;
 
 use crate::models::{
-    Model,
     column::{CreateOptions, CreateTableOptionValues, ModifyColumnOptionsValues},
     search::SearchQuery,
 };
@@ -111,18 +112,22 @@ pub trait DatabaseStrategy {
     ) -> Result<(), DatabaseStrategyError>;
 
     /// This function will search for a singular model.
-    fn search_single_model<T: Model>(
+    fn search_single_model<T>(
         &self,
         conn: &Self::ConnectionType<'_>,
         query: SearchQuery,
-    ) -> Result<Option<T>, DatabaseStrategyError>;
+    ) -> Result<Option<T>, DatabaseStrategyError>
+    where
+        T: Model + FromIter;
 
     /// This function will search for multiple models.
-    fn search_multiple_model<T: Model>(
+    fn search_multiple_model<T>(
         &self,
         conn: &Self::ConnectionType<'_>,
         query: SearchQuery,
-    ) -> Result<Vec<T>, DatabaseStrategyError>;
+    ) -> Result<Vec<T>, DatabaseStrategyError>
+    where
+        T: Model + FromIter;
 
     /// This function should remove a model from the database.
     fn remove_model<T: Model>(

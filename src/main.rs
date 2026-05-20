@@ -2,10 +2,11 @@ use chrono::{DateTime, Local, Utc};
 use clap::Parser;
 use django_rs::{
     models::{
-        Model, ModelIteration,
+        ModelIteration,
         column::{ColumnType, ColumnValue, CreateColumn, CreateOptions},
         save::SaveModel,
-        search::{SearchQuery, operator::SearchOp},
+        search::SearchQuery,
+        traits::{from_iter::FromIter, model::Model},
     },
     server::{
         Server,
@@ -18,6 +19,7 @@ use django_rs::{
         taskrunnable::TaskRunnable,
     },
 };
+use django_rs_macro::FromIter;
 use std::{str::FromStr, thread, time::Duration};
 use tracing_subscriber::EnvFilter;
 
@@ -42,7 +44,7 @@ impl TaskRunnable for PrintTask {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, FromIter)]
 pub struct Group {
     id: Option<i64>,
     name: String,
@@ -86,40 +88,9 @@ impl Model for Group {
             ),
         ]
     }
-
-    fn from_iter(iter: impl Iterator<Item = (String, String)>) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let mut id: Option<i64> = None;
-        let mut name: Option<String> = None;
-
-        for (key, value) in iter {
-            match value {
-                String { .. } if matches!(Self::get_latest_column_name("id"), Some(id_col) if id_col == key) => {
-                    id = value.parse::<i64>().ok()
-                }
-
-                String { .. } if matches!(Self::get_latest_column_name("name"), Some(name_col) if name_col == key) =>
-                {
-                    name = Some(value);
-                }
-
-                _ => {}
-            }
-        }
-
-        if let Some(id) = id
-            && let Some(name) = name
-        {
-            return Some(Self { id: Some(id), name });
-        }
-
-        None
-    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, FromIter)]
 pub struct User {
     id: Option<i64>,
     username: String,
@@ -195,65 +166,67 @@ impl Model for User {
     fn set_id(&mut self, id: i64) {
         self.id = Some(id);
     }
-
-    fn from_iter(iter: impl Iterator<Item = (String, String)>) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let mut id: Option<i64> = None;
-        let mut username: Option<String> = None;
-        let mut email: Option<String> = None;
-        let mut created: Option<DateTime<Utc>> = None;
-        let mut group_id: Option<i64> = None;
-
-        for (key, value) in iter {
-            match value {
-                String { .. } if matches!(Self::get_latest_column_name("id"), Some(id_col) if id_col == key) => {
-                    id = value.parse::<i64>().ok()
-                }
-
-                String { .. } if matches!(Self::get_latest_column_name("email"), Some(email_col) if email_col == key) =>
-                {
-                    email = Some(value);
-                }
-
-                String { .. } if matches!(Self::get_latest_column_name("username"), Some(username_col) if username_col == key) =>
-                {
-                    username = Some(value);
-                }
-
-                String { .. } if matches!(Self::get_latest_column_name("created"), Some(created_col) if created_col == key) =>
-                {
-                    created = DateTime::from_str(&value).ok();
-                }
-
-                String { .. } if matches!(Self::get_latest_column_name("group_id"), Some(group_col) if group_col == key ) =>
-                {
-                    group_id = value.parse().ok();
-                }
-
-                _ => {}
-            }
-        }
-
-        if let Some(id) = id
-            && let Some(username) = username
-            && let Some(email) = email
-            && let Some(created) = created
-            && let Some(group_id) = group_id
-        {
-            return Some(Self {
-                id: Some(id),
-                username,
-                email,
-                created,
-                group_id,
-            });
-        }
-
-        None
-    }
 }
+
+// impl FromIter for User {
+//     fn from_iter(iter: impl Iterator<Item = (String, String)>) -> Option<Self>
+//     where
+//         Self: Sized,
+//     {
+//         let mut id: Option<i64> = None;
+//         let mut username: Option<String> = None;
+//         let mut email: Option<String> = None;
+//         let mut created: Option<DateTime<Utc>> = None;
+//         let mut group_id: Option<i64> = None;
+
+//         for (key, value) in iter {
+//             match value {
+//                 String { .. } if matches!(Self::get_latest_column_name("id"), Some(id_col) if id_col == key) => {
+//                     id = value.parse::<i64>().ok()
+//                 }
+
+//                 String { .. } if matches!(Self::get_latest_column_name("email"), Some(email_col) if email_col == key) =>
+//                 {
+//                     email = Some(value);
+//                 }
+
+//                 String { .. } if matches!(Self::get_latest_column_name("username"), Some(username_col) if username_col == key) =>
+//                 {
+//                     username = Some(value);
+//                 }
+
+//                 String { .. } if matches!(Self::get_latest_column_name("created"), Some(created_col) if created_col == key) =>
+//                 {
+//                     created = DateTime::from_str(&value).ok();
+//                 }
+
+//                 String { .. } if matches!(Self::get_latest_column_name("group_id"), Some(group_col) if group_col == key ) =>
+//                 {
+//                     group_id = value.parse().ok();
+//                 }
+
+//                 _ => {}
+//             }
+//         }
+
+//         if let Some(id) = id
+//             && let Some(username) = username
+//             && let Some(email) = email
+//             && let Some(created) = created
+//             && let Some(group_id) = group_id
+//         {
+//             return Some(Self {
+//                 id: Some(id),
+//                 username,
+//                 email,
+//                 created,
+//                 group_id,
+//             });
+//         }
+
+//         None
+//     }
+// }
 
 fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();

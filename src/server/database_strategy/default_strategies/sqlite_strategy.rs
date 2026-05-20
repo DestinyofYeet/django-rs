@@ -9,12 +9,13 @@ use tracing::{debug, error, info, trace};
 
 use crate::{
     models::{
-        Model, ModelIteration,
+        ModelIteration,
         column::{
             ColumnType, ColumnValue, CreateColumnOptionsValues, CreateOptions,
             CreateTableOptionValues, ModifyColumnOptionsValues,
         },
         search::{SearchOptions, SearchOrderByOptions, SearchQuery, SearchSelectOptions},
+        traits::{from_iter::FromIter, model::Model},
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError, TransactionOptions},
 };
@@ -346,11 +347,15 @@ impl DatabaseStrategy for SqliteStrategy {
         Ok(())
     }
 
-    fn search_single_model<T: Model>(
+    fn search_single_model<T>(
         &self,
         conn: &Self::ConnectionType<'_>,
         query: SearchQuery,
-    ) -> Result<Option<T>, DatabaseStrategyError> {
+    ) -> Result<Option<T>, DatabaseStrategyError>
+    where
+        T: Model + FromIter,
+        Self: Sized,
+    {
         let mut models = self.search_multiple_model(conn, query.set_limit(1))?;
 
         if !models.is_empty() {
@@ -360,11 +365,14 @@ impl DatabaseStrategy for SqliteStrategy {
         Ok(None)
     }
 
-    fn search_multiple_model<T: Model>(
+    fn search_multiple_model<T>(
         &self,
         conn: &Self::ConnectionType<'_>,
         query: SearchQuery,
-    ) -> Result<Vec<T>, DatabaseStrategyError> {
+    ) -> Result<Vec<T>, DatabaseStrategyError>
+    where
+        T: Model + FromIter,
+    {
         let mut sql = String::new();
         let table_name = T::TABLE_NAME;
 

@@ -203,6 +203,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "django-rs-macro",
  "itertools",
  "rand",
  "rusqlite",
@@ -210,6 +211,14 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "django-rs-macro"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]
