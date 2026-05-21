@@ -9,13 +9,20 @@ use crate::models::{
 pub trait Model {
     const TABLE_NAME: &'static str;
 
+    /// This function should return the migration path for this Model
     fn get_migration() -> Vec<ModelIteration>;
 
+    /// This function controls wether the model is saved or inserted into the database
     fn get_id(&self) -> Option<i64>;
+
+    /// This function sets the id returned by the database
     fn set_id(&mut self, id: i64);
 
+    /// This function should return all columns and values which were defined by get_migration()
     fn get_save_data(&self) -> Vec<SaveModel>;
 
+    /// This function returns the latest name of a column by traversing the migration path.
+    /// An option of None indicates that the Column was dropped in the migration path
     fn get_latest_column_name(initial_name: &str) -> Option<String> {
         let mut past_names = vec![initial_name.to_string()];
         let mut name = Some(String::from(initial_name));
@@ -49,6 +56,7 @@ pub trait Model {
         name
     }
 
+    /// This function returns all columns and types defined by the get_migration()
     fn get_columns() -> Vec<(String, ColumnType)> {
         let migration = &Self::get_migration()[0];
         if let ModelIteration::Create(value) = migration {
@@ -61,11 +69,38 @@ pub trait Model {
         panic!("First migration is not a creation!");
     }
 
+    /// This function is a helper intended for use in Box<dyn ...> situations where T is not available
     fn self_get_migration(&self) -> Vec<ModelIteration> {
         Self::get_migration()
     }
 
+    /// This function is a helper intended for use in Box<dyn ...> situations where T is not available
     fn self_get_table_name(&self) -> &'static str {
         Self::TABLE_NAME
+    }
+
+    /// This function is a helper intended for use in Box<dyn ...> situations where T is not available
+    fn self_get_columns(&self) -> Vec<(String, ColumnType)> {
+        Self::get_columns()
+    }
+
+    /// This function checks if all columns are used in the save_data
+    fn validate_save_data(&self) -> Option<Vec<String>> {
+        let cols = Self::get_columns();
+        let save_data = self.get_save_data();
+
+        let mut missing_save_data = Vec::new();
+
+        for (name, _) in cols {
+            if !save_data.iter().any(|model| model.key == name) {
+                missing_save_data.push(name);
+            }
+        }
+
+        if missing_save_data.is_empty() {
+            None
+        } else {
+            Some(missing_save_data)
+        }
     }
 }

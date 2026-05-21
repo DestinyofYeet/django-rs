@@ -279,6 +279,16 @@ impl DatabaseStrategy for SqliteStrategy {
         let data = model.get_save_data();
         let table_name = model.self_get_table_name();
 
+        if let Some(missing_data) = model.validate_save_data() {
+            return Err(DatabaseStrategyError::SaveModel {
+                err: format!(
+                    "Missing the following columns in the save_data: {}",
+                    missing_data.join(",")
+                ),
+                model: type_name_of_val(model),
+            });
+        }
+
         let mut sql = String::new();
 
         let columns_values = data
