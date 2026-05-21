@@ -4,6 +4,7 @@ use crate::models::traits::from_iter::FromIter;
 use crate::models::traits::model::Model;
 use std::{collections::HashSet, ops::Deref};
 
+use rusqlite::Connection;
 use thiserror::Error;
 
 use crate::models::{
@@ -40,23 +41,30 @@ pub enum DatabaseStrategyError {
     DeleteModel(String),
 }
 
-pub trait DatabaseStrategy {
-    type ConnectionType<'a>: ?Sized;
+pub trait DatabaseStrategy: Send + Sync {
+    type ConnectionType<'a>: Sized + Deref<Target = Self::FunctionConnType<'a>>
+    where
+        Self: 'a;
 
-    type TransactionType<'a>: Deref<Target = Self::ConnectionType<'a>>
+    type FunctionConnType<'a>: Sized
+    where
+        Self: 'a;
+
+    type TransactionType<'a>: Deref<Target = Self::FunctionConnType<'a>>
     where
         Self: 'a;
 
     /// This function should return a simple connection type.
-    fn get_connection(&self) -> &Self::ConnectionType<'_>;
+    fn get_connection(&self) -> Self::ConnectionType<'_>;
 
-    /// This function should return a transaction connection type.
-    fn get_transaction(&self) -> Self::TransactionType<'_>;
+    fn with_transaction<F, T>(&self, function: F) -> Result<T, DatabaseStrategyError>
+    where
+        F: FnOnce(Self::TransactionType<'_>) -> T;
 
     /// This function should tell if a table exists.
     fn table_exists(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Self::FunctionConnType<'_>,
         table_name: &str,
     ) -> Result<bool, DatabaseStrategyError>;
 
@@ -86,13 +94,13 @@ pub trait DatabaseStrategy {
     /// This function should setup the migration table.
     fn setup_migration_table(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Self::FunctionConnType<'_>,
     ) -> Result<(), DatabaseStrategyError>;
 
     /// This function should record that a migration has run.
     fn on_migration_run(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Self::FunctionConnType<'_>,
         table_name: &str,
         index: i64,
     ) -> Result<(), DatabaseStrategyError>;
@@ -100,21 +108,21 @@ pub trait DatabaseStrategy {
     /// This function should return the last run migration for the given table.
     fn get_last_migration(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Self::FunctionConnType<'_>,
         table_name: &str,
     ) -> Result<Option<i64>, DatabaseStrategyError>;
 
     /// This function should save the model to the database.
     fn save_model(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Self::FunctionConnType<'_>,
         model: &mut impl Model,
     ) -> Result<(), DatabaseStrategyError>;
 
     /// This function will search for a singular model.
     fn search_single_model<T>(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Self::FunctionConnType<'_>,
         query: SearchQuery,
     ) -> Result<Option<T>, DatabaseStrategyError>
     where
@@ -123,7 +131,7 @@ pub trait DatabaseStrategy {
     /// This function will search for multiple models.
     fn search_multiple_model<T>(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Self::FunctionConnType<'_>,
         query: SearchQuery,
     ) -> Result<Vec<T>, DatabaseStrategyError>
     where
@@ -132,7 +140,7 @@ pub trait DatabaseStrategy {
     /// This function should remove a model from the database.
     fn remove_model<T: Model>(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Self::FunctionConnType<'_>,
         query: SearchQuery,
     ) -> Result<(), DatabaseStrategyError>;
 

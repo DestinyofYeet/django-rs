@@ -6,7 +6,7 @@ use std::{
 };
 
 use thiserror::Error;
-use tracing::{error, warn};
+use tracing::{error, trace, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -55,12 +55,12 @@ impl TaskHandler {
         Ok(value)
     }
 
-    pub fn queue_task(&mut self, task: Task) {
-        self.queue
-            .lock()
-            .expect("to get lock")
-            .push_back(Arc::new(Mutex::new(task)));
-    }
+    // pub(crate) fn queue_task(&mut self, task: Task) {
+    //     self.queue
+    //         .lock()
+    //         .expect("to get lock")
+    //         .push_back(Arc::new(Mutex::new(task)));
+    // }
 
     pub fn manage_workers(
         queue: Arc<Mutex<VecDeque<Arc<Mutex<Task>>>>>,
@@ -78,10 +78,12 @@ impl TaskHandler {
 
             drop(shutdown);
 
+            trace!("Getting queue lock");
             let mut queue = queue.lock().expect("to get queue lock");
 
             let existing_workers = TaskHandler::static_get_active_workers(workers.clone()) as u64;
 
+            trace!("Getting worker lock");
             let mut workers_lock = workers.lock().expect("to get worker lock");
 
             if existing_workers != max_workers {
@@ -125,14 +127,15 @@ impl TaskHandler {
 
             drop(queue);
             drop(workers_lock);
+            trace!("Release worker and queue lock");
 
             thread::sleep(Duration::from_millis(500));
         }
+
+        trace!("Worker manager exited!");
     }
 
     pub fn shutdown(self) -> Result<(), TaskError> {
-        *self.shutdown.lock().expect("to get shutdown lock") = true;
-
         loop {
             let queue = self.queue.lock().expect("to get lock");
 
@@ -143,6 +146,8 @@ impl TaskHandler {
             drop(queue);
             thread::sleep(Duration::from_millis(500));
         }
+
+        *self.shutdown.lock().expect("to get shutdown lock") = true;
 
         let workers = self.workers.lock().expect("to get lock");
 
@@ -172,10 +177,12 @@ impl TaskHandler {
     pub fn create_task(&self, taskable: Runnable) -> Uuid {
         let task = Task::new(taskable, self.logger.clone());
         let id = task.get_id();
+        trace!("Getting queue lock");
         self.queue
             .lock()
             .expect("to get queue lock")
             .push_back(Arc::new(Mutex::new(task)));
+        trace!("Release queue lock");
         id
     }
 

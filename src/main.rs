@@ -13,9 +13,11 @@ use django_rs::{
         database_strategy::{
             DatabaseStrategy, TransactionOptions, default_strategies::SqliteStrategy,
         },
+        database_tasks::SaveModelTask,
     },
     tasks::{
         logstrategy::{LogStrategyType, default_strategies::tracing_strategy::TracingStrategy},
+        task::Task,
         taskrunnable::TaskRunnable,
     },
 };
@@ -256,12 +258,12 @@ fn main() -> Result<(), anyhow::Error> {
     let conn = db.get_connection();
 
     if let Some(found_group) = db.search_single_model::<Group>(
-        conn,
+        &conn,
         SearchQuery::empty().add_constraint(("name", &group.name)),
     )? {
         group = found_group;
     } else {
-        db.save_model(conn, &mut group)?;
+        db.save_model(&conn, &mut group)?;
     };
 
     let mut user = User {
@@ -272,11 +274,11 @@ fn main() -> Result<(), anyhow::Error> {
         group_id: group.id.unwrap(),
     };
 
-    db.save_model(conn, &mut user)?;
-    let conn = db.get_transaction();
+    db.save_model(&conn, &mut user)?;
+    let conn = db.get_connection();
     let mut user = db
         .search_single_model::<User>(
-            &*conn,
+            &conn,
             SearchQuery::empty().add_constraint(("id", ColumnValue::Integer(1))),
         )?
         .unwrap();
@@ -285,8 +287,12 @@ fn main() -> Result<(), anyhow::Error> {
 
     user.group_id = 5;
 
-    db.save_model(&*conn, &mut user)?;
+    let save_task = SaveModelTask::new(db.clone(), user);
 
+    let task_handler = server.get_task_handler();
+    task_handler.create_task(PrintTask::new());
+
+    let uuid = task_handler.create_task(Box::new(save_task));
     // db.remove_model::<User>(
     //     conn,
     //     SearchQuery::empty().add_constraint(SearchConstraint::new(
@@ -309,10 +315,16 @@ where
     D: DatabaseStrategy,
 {
     let db = server.get_database();
-    let conn = db.get_connection();
-    let tx = db.get_transaction();
+    db.with_transaction(|tx| {
+        db.table_exists(&*tx, "hi").unwrap();
+        db.manage_transaction(tx, TransactionOptions::Commit)
+            .unwrap();
+    })
+    .unwrap();
 
-    db.table_exists(&tx, "hi").unwrap();
-    db.manage_transaction(tx, TransactionOptions::Commit)
-        .unwrap();
+    // let tx = db.get_transaction();
+
+    // db.table_exists(&tx, "hi").unwrap();
+    // db.manage_transaction(tx, TransactionOptions::Commit)
+    // .unwrap();
 }

@@ -1,9 +1,13 @@
 use std::{
     any::{type_name, type_name_of_val},
     collections::HashSet,
+    ops::Deref,
+    sync::Arc,
 };
 
 use itertools::Itertools;
+use r2d2::{Pool, PooledConnection};
+use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{Connection, Transaction, params, params_from_iter};
 use tracing::{debug, error, info, trace};
 
@@ -21,27 +25,41 @@ use crate::{
 };
 
 pub struct SqliteStrategy {
-    conn: Connection,
+    pool: Pool<SqliteConnectionManager>,
 }
 
 impl SqliteStrategy {
     pub fn new(path: impl ToString) -> Self {
-        let sqlite = Connection::open(path.to_string()).unwrap();
+        let manager = SqliteConnectionManager::file(path.to_string());
+        let pool = Pool::new(manager).unwrap();
 
-        Self { conn: sqlite }
+        Self { pool }
     }
 }
 
 impl DatabaseStrategy for SqliteStrategy {
-    type ConnectionType<'a> = Connection;
+    type ConnectionType<'a> = PooledConnection<SqliteConnectionManager>;
     type TransactionType<'a> = Transaction<'a>;
 
-    fn get_connection(&self) -> &Self::ConnectionType<'_> {
-        &self.conn
+    type FunctionConnType<'a>
+        = Connection
+    where
+        Self: 'a;
+
+    fn get_connection(&self) -> Self::ConnectionType<'_> {
+        self.pool.get().unwrap()
     }
 
-    fn get_transaction(&self) -> Self::TransactionType<'_> {
-        self.conn.unchecked_transaction().unwrap()
+    fn with_transaction<F, T>(&self, function: F) -> Result<T, DatabaseStrategyError>
+    where
+        F: FnOnce(Self::TransactionType<'_>) -> T,
+    {
+        let mut conn = self.get_connection();
+        let transaction = conn
+            .transaction()
+            .map_err(|e| DatabaseStrategyError::Transaction(e.to_string()))?;
+
+        Ok(function(transaction))
     }
 
     fn migrate_model<M: Model>(&self) -> Result<(), DatabaseStrategyError> {
@@ -56,7 +74,10 @@ impl DatabaseStrategy for SqliteStrategy {
             )));
         }
 
-        let transaction = self.get_transaction();
+        let mut pool = self.get_connection();
+        let transaction = pool
+            .transaction()
+            .map_err(|e| DatabaseStrategyError::Transaction(e.to_string()))?;
 
         for (count, migration) in migration_data.iter().enumerate() {
             self.setup_migration_table(&transaction)?;
@@ -151,7 +172,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
     fn table_exists(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Connection,
         table_name: &str,
     ) -> Result<bool, DatabaseStrategyError> {
         conn.table_exists(None, table_name)
@@ -273,7 +294,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
     fn save_model(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Connection,
         model: &mut impl Model,
     ) -> Result<(), DatabaseStrategyError> {
         let data = model.get_save_data();
@@ -359,7 +380,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
     fn search_single_model<T>(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Connection,
         query: SearchQuery,
     ) -> Result<Option<T>, DatabaseStrategyError>
     where
@@ -377,7 +398,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
     fn search_multiple_model<T>(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Connection,
         query: SearchQuery,
     ) -> Result<Vec<T>, DatabaseStrategyError>
     where
@@ -527,7 +548,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
     fn remove_model<T: Model>(
         &self,
-        conn: &Self::ConnectionType<'_>,
+        conn: &Connection,
         query: SearchQuery,
     ) -> Result<(), DatabaseStrategyError> {
         let table_name = T::TABLE_NAME;
