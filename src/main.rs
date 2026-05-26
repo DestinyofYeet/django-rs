@@ -6,7 +6,7 @@ use django_rs::{
         column::{ColumnType, ColumnValue, CreateColumn, CreateOptions},
         save::SaveModel,
         search::SearchQuery,
-        traits::{from_iter::FromIter, model::Model},
+        traits::model::Model,
     },
     server::{
         Server,
@@ -17,12 +17,12 @@ use django_rs::{
     },
     tasks::{
         logstrategy::{LogStrategyType, default_strategies::tracing_strategy::TracingStrategy},
-        task::Task,
+        task::TaskState,
         taskrunnable::TaskRunnable,
     },
 };
 use django_rs_macro::FromIter;
-use std::{str::FromStr, thread, time::Duration};
+use std::{thread, time::Duration};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
@@ -290,16 +290,13 @@ fn main() -> Result<(), anyhow::Error> {
     let save_task = SaveModelTask::new(db.clone(), user);
 
     let task_handler = server.get_task_handler();
-    task_handler.create_task(PrintTask::new());
+    task_handler.spawn_task(PrintTask::new());
 
-    let uuid = task_handler.create_task(Box::new(save_task));
-    // db.remove_model::<User>(
-    //     conn,
-    //     SearchQuery::empty().add_constraint(SearchConstraint::new(
-    //         "username",
-    //         ColumnValue::String("roflrofl".to_string()),
-    //     )),
-    // )?;
+    let task = task_handler.spawn_task(save_task);
+    db.remove_model::<User>(
+        &conn,
+        &SearchQuery::empty().add_constraint(("username", "roflrofl")),
+    )?;
 
     drop(conn);
 

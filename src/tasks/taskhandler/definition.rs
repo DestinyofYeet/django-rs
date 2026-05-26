@@ -174,16 +174,15 @@ impl TaskHandler {
             .sum()
     }
 
-    pub fn create_task(&self, taskable: Runnable) -> Uuid {
-        let task = Task::new(taskable, self.logger.clone());
-        let id = task.get_id();
+    pub fn spawn_task(&self, taskable: Runnable) -> Arc<Mutex<Task>> {
+        let task = Arc::new(Mutex::new(Task::new(taskable, self.logger.clone())));
         trace!("Getting queue lock");
         self.queue
             .lock()
             .expect("to get queue lock")
-            .push_back(Arc::new(Mutex::new(task)));
+            .push_back(task.clone());
         trace!("Release queue lock");
-        id
+        task
     }
 
     pub fn is_done(&self, task_id: Uuid) -> bool {

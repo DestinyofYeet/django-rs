@@ -141,7 +141,7 @@ pub trait DatabaseStrategy: Send + Sync {
     fn remove_model<T: Model>(
         &self,
         conn: &Self::FunctionConnType<'_>,
-        query: SearchQuery,
+        query: &SearchQuery,
     ) -> Result<(), DatabaseStrategyError>;
 
     /// This function should manage a transaction connection type.

@@ -549,7 +549,7 @@ impl DatabaseStrategy for SqliteStrategy {
     fn remove_model<T: Model>(
         &self,
         conn: &Connection,
-        query: SearchQuery,
+        query: &SearchQuery,
     ) -> Result<(), DatabaseStrategyError> {
         let table_name = T::TABLE_NAME;
 
@@ -573,7 +573,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
         let params = query
             .constraints
-            .into_iter()
+            .iter()
             .map(|e| Self::match_column_value(&e.value))
             .collect_vec();
 
