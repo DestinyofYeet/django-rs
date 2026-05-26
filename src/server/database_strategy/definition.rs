@@ -2,6 +2,8 @@ use crate::models::column::ColumnType;
 use crate::models::column::ColumnValue;
 use crate::models::traits::from_iter::FromIter;
 use crate::models::traits::model::Model;
+use crate::models::traits::save_data::SaveData;
+use crate::models::traits::save_data::ValidateSaveData;
 use std::{collections::HashSet, ops::Deref};
 
 use rusqlite::Connection;
@@ -113,11 +115,13 @@ pub trait DatabaseStrategy: Send + Sync {
     ) -> Result<Option<i64>, DatabaseStrategyError>;
 
     /// This function should save the model to the database.
-    fn save_model(
+    fn save_model<T>(
         &self,
         conn: &Self::FunctionConnType<'_>,
-        model: &mut impl Model,
-    ) -> Result<(), DatabaseStrategyError>;
+        model: &mut T,
+    ) -> Result<(), DatabaseStrategyError>
+    where
+        T: SaveData + ValidateSaveData + Model + FromIter;
 
     /// This function will search for a singular model.
     fn search_single_model<T>(

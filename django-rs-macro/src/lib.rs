@@ -116,3 +116,51 @@ pub fn derive_from_iter(input: TokenStream) -> TokenStream {
         .into_compile_error(),
     )
 }
+
+#[proc_macro_derive(SaveData)]
+pub fn derive_save_data(input: TokenStream) -> TokenStream {
+
+    let input = parse_macro_input!(input as DeriveInput);
+
+    if let syn::Data::Struct(ref data) = input.data && let Fields::Named(ref fields) = data.fields {
+
+        let name = input.ident;
+        // let name_string = name.to_string();
+
+        let save_models = fields.named.iter().map(|field| {
+           let field_name = field.ident.clone().unwrap(); 
+           let field_name_string = field_name.to_string();
+
+           let value = if is_option(&field.ty) {
+               quote!(self.#field_name)
+           } else {
+               quote!(self.#field_name.clone().into())
+           };
+
+           quote!(SaveModel::new(
+               Self::get_latest_column_name(#field_name_string).unwrap(),
+               #value
+           ))
+        });
+
+        return quote!(
+            impl django_rs::models::traits::save_data::SaveData for #name {
+                fn get_save_data(&self) -> Vec<SaveModel> {
+                    vec![
+                        #(#save_models),*
+                    ]
+                }
+
+            }
+        ).into()
+        
+    }
+
+    TokenStream::from(
+        syn::Error::new(
+            input.ident.span(),
+            "Only structs with named fields can derive 'FromIter'",
+        )
+        .into_compile_error(),
+    )
+}

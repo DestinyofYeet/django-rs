@@ -1,7 +1,12 @@
 use std::sync::Arc;
 
 use crate::{
-    models::traits::model::Model, server::database_strategy::DatabaseStrategy,
+    models::traits::{
+        from_iter::FromIter,
+        model::Model,
+        save_data::{SaveData, ValidateSaveData},
+    },
+    server::database_strategy::DatabaseStrategy,
     tasks::taskrunnable::TaskRunnable,
 };
 
@@ -27,7 +32,7 @@ where
 impl<D, M> TaskRunnable for SaveModelTask<D, M>
 where
     D: DatabaseStrategy,
-    M: Model,
+    M: Model + SaveData + FromIter + ValidateSaveData,
 {
     fn run(&mut self, logger: crate::tasks::logstrategy::LogStrategyType, worker_id: u64) {
         let conn = self.db.get_connection();

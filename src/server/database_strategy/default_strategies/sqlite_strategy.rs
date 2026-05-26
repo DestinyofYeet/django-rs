@@ -1,8 +1,6 @@
 use std::{
     any::{type_name, type_name_of_val},
     collections::HashSet,
-    ops::Deref,
-    sync::Arc,
 };
 
 use itertools::Itertools;
@@ -19,7 +17,11 @@ use crate::{
             CreateTableOptionValues, ModifyColumnOptionsValues,
         },
         search::{SearchOptions, SearchOrderByOptions, SearchQuery, SearchSelectOptions},
-        traits::{from_iter::FromIter, model::Model},
+        traits::{
+            from_iter::FromIter,
+            model::Model,
+            save_data::{SaveData, ValidateSaveData},
+        },
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError, TransactionOptions},
 };
@@ -292,11 +294,10 @@ impl DatabaseStrategy for SqliteStrategy {
         out
     }
 
-    fn save_model(
-        &self,
-        conn: &Connection,
-        model: &mut impl Model,
-    ) -> Result<(), DatabaseStrategyError> {
+    fn save_model<T>(&self, conn: &Connection, model: &mut T) -> Result<(), DatabaseStrategyError>
+    where
+        T: SaveData + Model + FromIter + ValidateSaveData,
+    {
         let data = model.get_save_data();
         let table_name = model.self_get_table_name();
 

@@ -3,7 +3,6 @@ use itertools::Itertools;
 use crate::models::{
     ModelIteration,
     column::{ColumnType, ModifyColumnOptionsValues},
-    save::SaveModel,
 };
 
 pub trait Model {
@@ -17,9 +16,6 @@ pub trait Model {
 
     /// This function sets the id returned by the database
     fn set_id(&mut self, id: i64);
-
-    /// This function should return all columns and values which were defined by get_migration()
-    fn get_save_data(&self) -> Vec<SaveModel>;
 
     /// This function returns the latest name of a column by traversing the migration path.
     /// An option of None indicates that the Column was dropped in the migration path
@@ -82,25 +78,5 @@ pub trait Model {
     /// This function is a helper intended for use in Box<dyn ...> situations where T is not available
     fn self_get_columns(&self) -> Vec<(String, ColumnType)> {
         Self::get_columns()
-    }
-
-    /// This function checks if all columns are used in the save_data
-    fn validate_save_data(&self) -> Option<Vec<String>> {
-        let cols = Self::get_columns();
-        let save_data = self.get_save_data();
-
-        let mut missing_save_data = Vec::new();
-
-        for (name, _) in cols {
-            if !save_data.iter().any(|model| model.key == name) {
-                missing_save_data.push(name);
-            }
-        }
-
-        if missing_save_data.is_empty() {
-            None
-        } else {
-            Some(missing_save_data)
-        }
     }
 }

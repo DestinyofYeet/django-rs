@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local, Utc};
 use clap::Parser;
 use django_rs::{
-    django_rs_macro::FromIter,
+    django_rs_macro::{FromIter, SaveData},
     models::{
         ModelIteration,
         column::{ColumnType, ColumnValue, CreateColumn, CreateOptions},
@@ -18,7 +18,6 @@ use django_rs::{
     },
     tasks::{
         logstrategy::{LogStrategyType, default_strategies::tracing_strategy::TracingStrategy},
-        task::TaskState,
         taskrunnable::TaskRunnable,
     },
 };
@@ -46,7 +45,7 @@ impl TaskRunnable for PrintTask {
     }
 }
 
-#[derive(Debug, FromIter)]
+#[derive(Debug, FromIter, SaveData)]
 pub struct Group {
     id: Option<i64>,
     name: String,
@@ -77,22 +76,21 @@ impl Model for Group {
     fn set_id(&mut self, id: i64) {
         self.id = Some(id);
     }
-
-    fn get_save_data(&self) -> Vec<SaveModel> {
-        vec![
-            SaveModel::new(
-                Self::get_latest_column_name("id").unwrap(),
-                self.id.map(ColumnValue::Integer),
-            ),
-            SaveModel::new(
-                Self::get_latest_column_name("name").unwrap(),
-                Some(self.name.as_str()),
-            ),
-        ]
-    }
 }
 
-#[derive(Debug, FromIter)]
+// impl SaveData for Group {
+//     fn get_save_data(&self) -> Vec<SaveModel> {
+//         vec![
+//             SaveModel::new(Self::get_latest_column_name("id").unwrap(), self.id),
+//             SaveModel::new(
+//                 Self::get_latest_column_name("name").unwrap(),
+//                 self.name.clone().into(),
+//             ),
+//         ]
+//     }
+// }
+
+#[derive(Debug, FromIter, SaveData)]
 pub struct User {
     id: Option<i64>,
     username: String,
@@ -134,31 +132,6 @@ impl Model for User {
                     .set_foreign_key("groups", "id"),
             ),
         ])]
-    }
-
-    fn get_save_data(&self) -> Vec<SaveModel> {
-        vec![
-            SaveModel::new(
-                Self::get_latest_column_name("username").unwrap(),
-                Some(ColumnValue::String(self.username.clone())),
-            ),
-            SaveModel::new(
-                Self::get_latest_column_name("email").unwrap(),
-                Some(ColumnValue::String(self.email.clone())),
-            ),
-            SaveModel::new(
-                Self::get_latest_column_name("id").unwrap(),
-                self.id.map(ColumnValue::Integer),
-            ),
-            SaveModel::new(
-                Self::get_latest_column_name("created").unwrap(),
-                Some(ColumnValue::Date(self.created)),
-            ),
-            SaveModel::new(
-                Self::get_latest_column_name("group_id").unwrap(),
-                Some(ColumnValue::Integer(self.group_id)),
-            ),
-        ]
     }
 
     fn get_id(&self) -> Option<i64> {
