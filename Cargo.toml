@@ -5,7 +5,7 @@ edition = "2024"
 
 [workspace]
 resolver = "3"
-members = ["django-rs-macro"]
+members = ["django-rs-macro", "test-client"]
 
 [dependencies]
 anyhow = "1.0.102"
@@ -16,7 +16,6 @@ rand = "0.10.1"
 rusqlite = "0.39.0"
 thiserror = "2.0.18"
 tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 uuid = { version = "1.23.1", features = ["v4"] }
 django-rs-macro = { path = "./django-rs-macro" }
 r2d2_sqlite = "0.34.0"

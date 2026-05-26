@@ -1,6 +1,7 @@
 use chrono::{DateTime, Local, Utc};
 use clap::Parser;
 use django_rs::{
+    django_rs_macro::FromIter,
     models::{
         ModelIteration,
         column::{ColumnType, ColumnValue, CreateColumn, CreateOptions},
@@ -21,7 +22,6 @@ use django_rs::{
         taskrunnable::TaskRunnable,
     },
 };
-use django_rs_macro::FromIter;
 use std::{thread, time::Duration};
 use tracing_subscriber::EnvFilter;
 

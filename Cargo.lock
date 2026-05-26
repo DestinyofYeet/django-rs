@@ -211,7 +211,6 @@ dependencies = [
  "rusqlite",
  "thiserror",
  "tracing",
- "tracing-subscriber",
  "uuid",
 ]
 
@@ -787,6 +786,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "test-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "django-rs",
+ "tracing-subscriber",
 ]
 
 [[package]]
