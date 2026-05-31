@@ -5,7 +5,7 @@ edition = "2024"
 
 [workspace]
 resolver = "3"
-members = ["django-rs-macro", "test-client"]
+members = ["django-rs-macro", "examples/serde", "examples/test-client"]
 
 [dependencies]
 anyhow = "1.0.102"

@@ -21,6 +21,7 @@ use django_rs::{
         taskrunnable::TaskRunnable,
     },
 };
+use serde::Serialize;
 use std::{thread, time::Duration};
 use tracing_subscriber::EnvFilter;
 
@@ -45,7 +46,7 @@ impl TaskRunnable for PrintTask {
     }
 }
 
-#[derive(Debug, FromIter, SaveData)]
+#[derive(Debug, FromIter, SaveData, Serialize)]
 pub struct Group {
     id: Option<i64>,
     name: String,

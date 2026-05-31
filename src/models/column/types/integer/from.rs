@@ -5,3 +5,9 @@ impl From<i64> for ColumnValue {
         ColumnValue::Integer(value)
     }
 }
+
+impl From<i32> for ColumnValue {
+    fn from(value: i32) -> Self {
+        ColumnValue::Integer(value as i64)
+    }
+}

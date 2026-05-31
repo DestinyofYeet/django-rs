@@ -5,7 +5,8 @@ edition = "2024"
 
 [dependencies]
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-django-rs = { path = "../" }
+django-rs = { path = "../../" }
 anyhow = "1.0.102"
 chrono = "0.4.44"
 clap = { version = "4.6.1", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }

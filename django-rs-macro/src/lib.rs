@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, Fields, GenericArgument, parse_macro_input};
+use syn::{DeriveInput, Fields, GenericArgument, Ident, parse_macro_input};
 
 use syn::{Type, TypePath, PathArguments};
 
@@ -37,6 +37,11 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
     Some(inner_ty)
 }
 
+
+fn prefix_ident(ident: Ident) -> Ident {
+    Ident::new(&format!("macro_{ident}"), ident.span())
+}
+
 #[proc_macro_derive(FromIter)]
 pub fn derive_from_iter(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -48,22 +53,27 @@ pub fn derive_from_iter(input: TokenStream) -> TokenStream {
             let ty = field.ty.clone();
             let name = field.ident.clone().unwrap();
             let ty = if is_option(&ty) { option_inner_type(&ty).unwrap().clone() } else { ty };
-            quote!(let mut #name: Option<#ty> = None;)
+
+            let prefixed = prefix_ident(name);
+            quote!(let mut #prefixed: Option<#ty> = None;)
         });
 
         let fill_options = fields.named.iter().map(|field| {
             let name = field.ident.clone().unwrap();
             let name_string = name.to_string();
+
+            let prefixed = prefix_ident(name);
                 
             quote!(
                 String { .. } if matches!(Self::get_latest_column_name(#name_string), Some(col) if col == key) => {
-                    #name = value.parse().ok();    
+                    #prefixed = value.parse().ok();
                 })
         });
 
         let check_options = fields.named.iter().map(|field| {
             let name = field.ident.clone().unwrap();
-            quote!(let Some(#name) = #name)
+            let prefixed = prefix_ident(name.clone());
+            quote!(let Some(#name) = #prefixed)
         });
 
         let construct_self = fields.named.iter().map(|field| {
@@ -87,7 +97,7 @@ pub fn derive_from_iter(input: TokenStream) -> TokenStream {
                     #(#options)*
 
                     for (key, value) in iter {
-                        match value {
+                        match key {
                             #(#fill_options)*
                             
                             _ => {}
