@@ -65,8 +65,8 @@ pub fn derive_from_iter(input: TokenStream) -> TokenStream {
             let prefixed = prefix_ident(name);
                 
             quote!(
-                String { .. } if matches!(Self::get_latest_column_name(#name_string), Some(col) if col == key) => {
-                    #prefixed = value.parse().ok();
+                String { .. } if matches!(Self::get_latest_column_name(#name_string), Some(col) if col == column_name) => {
+                    #prefixed = column_value.from_column(column_type).ok();
                 })
         });
 
@@ -90,14 +90,19 @@ pub fn derive_from_iter(input: TokenStream) -> TokenStream {
 
         return quote!(
             impl django_rs::models::traits::from_iter::FromIter for #name {
-                fn from_iter(iter: impl Iterator<Item = (String, String)>) -> Option<Self>
+                fn from_iter(iter: impl Iterator<Item = django_rs::models::traits::from_iter::FromIterValue>) -> Option<Self>
                 where
                     Self: Sized,
                 {
+                    use django_rs::models::column::{FromColumn, ToColumn};
                     #(#options)*
 
-                    for (key, value) in iter {
-                        match key {
+                    for django_rs::models::traits::from_iter::FromIterValue {
+                        column_name,
+                        column_value,
+                        column_type,
+                    } in iter {                        
+                        match column_name {
                             #(#fill_options)*
                             
                             _ => {}
@@ -141,21 +146,23 @@ pub fn derive_save_data(input: TokenStream) -> TokenStream {
            let field_name = field.ident.clone().unwrap(); 
            let field_name_string = field_name.to_string();
 
-           let value = if is_option(&field.ty) {
-               quote!(self.#field_name)
-           } else {
-               quote!(self.#field_name.clone().into())
-           };
+           // let value = if is_option(&field.ty) {
+           //     quote!(self.#field_name)
+           // } else {
+           //     quote!(self.#field_name.clone().into())
+           // };
 
            quote!(SaveModel::new(
                Self::get_latest_column_name(#field_name_string).unwrap(),
-               #value
+               self.#field_name.to_column().unwrap()
            ))
         });
 
         return quote!(
             impl django_rs::models::traits::save_data::SaveData for #name {
                 fn get_save_data(&self) -> Vec<SaveModel> {
+                    use django_rs::models::column::ToColumn;
+
                     vec![
                         #(#save_models),*
                     ]

@@ -120,6 +120,8 @@ impl CreateOptions {
                         }
                     }
                     ColumnType::Date => {}
+                    ColumnType::Json => {}
+                    ColumnType::Bool => {}
                 },
                 CreateColumnOptionsValues::Unique => {}
                 CreateColumnOptionsValues::Check(_) => {}

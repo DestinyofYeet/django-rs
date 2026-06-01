@@ -209,6 +209,7 @@ dependencies = [
  "rand",
  "rusqlite",
  "serde",
+ "serde_json",
  "thiserror",
  "tracing",
  "uuid",
@@ -706,6 +707,7 @@ version = "0.1.0"
 dependencies = [
  "django-rs",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

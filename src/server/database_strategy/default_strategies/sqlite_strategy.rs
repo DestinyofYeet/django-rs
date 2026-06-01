@@ -18,7 +18,7 @@ use crate::{
         },
         search::{SearchOptions, SearchOrderByOptions, SearchQuery, SearchSelectOptions},
         traits::{
-            from_iter::FromIter,
+            from_iter::{FromIter, FromIterValue},
             model::Model,
             save_data::{SaveData, ValidateSaveData},
         },
@@ -187,6 +187,8 @@ impl DatabaseStrategy for SqliteStrategy {
             ColumnType::Integer => "INTEGER",
             ColumnType::Float => "REAL",
             ColumnType::Date => "TEXT",
+            ColumnType::Json => "TEXT",
+            ColumnType::Bool => "INTEGER",
         })
         .to_string()
     }
@@ -326,9 +328,9 @@ impl DatabaseStrategy for SqliteStrategy {
 
         let columns_values = data
             .iter()
-            .filter(|e| e.value.is_some())
+            .filter(|e| !matches!(e.value, ColumnValue::Null))
             .map(|e| {
-                let value = e.value.as_ref().map(Self::match_column_value);
+                let value = Self::match_column_value(&e.value);
 
                 (e.key.clone(), value)
             })
@@ -506,32 +508,41 @@ impl DatabaseStrategy for SqliteStrategy {
             .query_map(params_from_iter(params.into_iter()), |row| {
                 let iter = columns.iter().map(|(column, column_type)| {
                     let value = match column_type {
-                        ColumnType::String => row.get(column.as_str()).map(|e: String| e),
                         ColumnType::Integer => {
                             row.get(column.as_str()).map(|e: i64| format!("{e}"))
                         }
                         ColumnType::Float => row.get(column.as_str()).map(|e: f64| format!("{e}")),
-                        ColumnType::Date => row.get(column.as_str()).map(|e: String| e),
+                        ColumnType::String |
+                        ColumnType::Date |
+                        ColumnType::Json |
+                        ColumnType::Bool => row.get(column.as_str()).map(|e: String| e),
                     };
 
                     let value = match value {
-                        Ok(value) => Some(value),
+                        Ok(value) => value,
                         Err(e) => {
                             error!(
                                 "Expected Column {column} with type {column_type:?} on Model {}, error: {e:?}",
                                 type_name::<T>()
                             );
-                            None
+                            return None;
                         }
                     };
 
-                    (column.to_string(), value)
+
+                    Some(FromIterValue {
+                        column_name: column.to_string(),
+                        column_value: value,
+                        column_type: *column_type
+                        
+                    })
+
 
                 });
 
-                match iter.clone().all(|(_, value)| value.is_some()) {
+                match iter.clone().all(|value| value.is_some()) {
                     true => {
-                        Ok(T::from_iter(iter.map(|(col, value)| (col, value.unwrap()))))
+                        Ok(T::from_iter(iter.map(|value| value.unwrap())))
                     },
                     false => {
                         trace!("Failed to test for all Some() values");
@@ -555,6 +566,8 @@ impl DatabaseStrategy for SqliteStrategy {
             ColumnValue::Integer(value) => format!("{value}"),
             ColumnValue::Float(value) => format!("{value:.4}"),
             ColumnValue::Date(value) => value.to_rfc3339(),
+            ColumnValue::Json(value) => value.clone(),
+            ColumnValue::Null => "null".to_string(),
         }
     }
 
