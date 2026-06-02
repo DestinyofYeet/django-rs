@@ -152,7 +152,7 @@ pub fn derive_save_data(input: TokenStream) -> TokenStream {
            //     quote!(self.#field_name.clone().into())
            // };
 
-           quote!(django_rs::modles::save::SaveModel::new(
+           quote!(django_rs::models::save::SaveModel::new(
                Self::get_latest_column_name(#field_name_string).unwrap(),
                self.#field_name.to_column().unwrap()
            ))
