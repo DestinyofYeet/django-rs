@@ -159,6 +159,8 @@ pub fn derive_save_data(input: TokenStream) -> TokenStream {
         });
 
         return quote!(
+            use django_rs::models::save::SaveModel;
+
             impl django_rs::models::traits::save_data::SaveData for #name {
                 fn get_save_data(&self) -> Vec<SaveModel> {
                     use django_rs::models::column::ToColumn;

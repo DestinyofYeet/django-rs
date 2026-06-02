@@ -1,10 +1,7 @@
-use django_rs::django_rs_macro::FromIter;
-use django_rs::models::save::SaveModel;
+use django_rs::django_rs_macro::{FromIter, SaveData};
 use django_rs::models::search::SearchQuery;
-use django_rs::models::traits::from_iter::{FromIter, FromIterValue};
 use django_rs::models::traits::save_data::SaveData;
 use django_rs::{
-    django_rs_macro::SaveData,
     models::{
         ModelIteration,
         column::{ColumnType, CreateColumn, CreateOptions},
