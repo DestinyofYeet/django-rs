@@ -1,0 +1,21 @@
+---
+enable-email-notifications: true
+name: "Check"
+on: # yamllint disable-line rule:truthy
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+jobs:
+  check_commit_format:
+    runs-on: native
+    if: '! github.event.pull_request.draft'
+    steps:
+      - uses: https://code.forgejo.org/actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - run: |
+          git checkout "${{ github.head_ref }}"
+          git pull
+      - name: Check commit format
+        run: |
+          nix run nixpkgs#commitizen -- check -d
