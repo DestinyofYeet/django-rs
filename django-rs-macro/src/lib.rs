@@ -152,17 +152,15 @@ pub fn derive_save_data(input: TokenStream) -> TokenStream {
            //     quote!(self.#field_name.clone().into())
            // };
 
-           quote!(SaveModel::new(
+           quote!(django_rs::modles::save::SaveModel::new(
                Self::get_latest_column_name(#field_name_string).unwrap(),
                self.#field_name.to_column().unwrap()
            ))
         });
 
         return quote!(
-            use django_rs::models::save::SaveModel;
-
             impl django_rs::models::traits::save_data::SaveData for #name {
-                fn get_save_data(&self) -> Vec<SaveModel> {
+                fn get_save_data(&self) -> Vec<django_rs::models::save::SaveModel> {
                     use django_rs::models::column::ToColumn;
 
                     vec![
