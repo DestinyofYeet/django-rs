@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{any::Any, marker::PhantomData, sync::Arc};
 
 use crate::{
     models::{search::SearchQuery, traits::model::Model},
@@ -35,11 +35,12 @@ where
     D: DatabaseStrategy,
     M: Model,
 {
-    fn run(&mut self, logger: crate::tasks::logstrategy::LogStrategyType, worker_id: u64) {
+    fn run(
+        &mut self,
+        logger: crate::tasks::logstrategy::LogStrategyType,
+        worker_id: u64,
+    ) -> Box<dyn Any + Send + Sync> {
         let conn = self.db.get_connection();
-        match self.db.remove_model::<M>(&conn, &self.search) {
-            Ok(_) => {}
-            Err(e) => logger.error(worker_id, &format!("Failed to save model: {e}")),
-        }
+        Box::new(self.db.remove_model::<M>(&conn, &self.search))
     }
 }

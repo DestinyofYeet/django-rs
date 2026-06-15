@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::models::{column::ColumnValue, search::operator::SearchOp};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SearchConstraint {
     pub(crate) column: String,
     pub(crate) operator: SearchOp,
@@ -21,26 +21,26 @@ impl SearchConstraint {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub enum SearchOptions {
     Limit(i64),
     OrderBy(Vec<(String, Option<SearchOrderByOptions>)>),
 }
 
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub enum SearchOrderByOptions {
     Asc,
     Desc,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub enum SearchSelectOptions {
     Min,
     Max,
     Columns(Vec<String>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SearchQuery {
     pub(crate) constraints: Vec<SearchConstraint>,
     pub(crate) post_options: HashSet<(u8, SearchOptions)>,

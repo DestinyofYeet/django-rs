@@ -9,10 +9,10 @@ use thiserror::Error;
 use tracing::{error, trace, warn};
 use uuid::Uuid;
 
-use crate::{
-    tasks::logstrategy::{LogStrategy, LogStrategyType},
-    tasks::task::{Runnable, Task},
-    tasks::worker::{Worker, WorkerError},
+use crate::tasks::{
+    logstrategy::{LogStrategy, LogStrategyType},
+    task::{Runnable, Task, TaskState},
+    worker::{Worker, WorkerError},
 };
 
 #[derive(Error, Debug)]
@@ -204,5 +204,18 @@ impl TaskHandler {
         }
 
         true
+    }
+
+    pub fn wait_until_done(&self, task: Arc<Mutex<Task>>) {
+        loop {
+            {
+                let task = task.lock().expect("to get lock");
+                if task.get_state() == TaskState::Done {
+                    return;
+                }
+            }
+
+            thread::sleep(Duration::from_millis(100));
+        }
     }
 }

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
 use crate::{
     models::traits::{
@@ -27,6 +27,10 @@ where
     pub fn new(db: Arc<D>, model: M) -> Box<Self> {
         Box::new(Self { db, model })
     }
+
+    pub fn get_model(&self) -> &M {
+        &self.model
+    }
 }
 
 impl<D, M> TaskRunnable for SaveModelTask<D, M>
@@ -34,11 +38,12 @@ where
     D: DatabaseStrategy,
     M: Model + SaveData + FromIter + ValidateSaveData,
 {
-    fn run(&mut self, logger: crate::tasks::logstrategy::LogStrategyType, worker_id: u64) {
+    fn run(
+        &mut self,
+        logger: crate::tasks::logstrategy::LogStrategyType,
+        worker_id: u64,
+    ) -> Box<dyn Any + Send + Sync> {
         let conn = self.db.get_connection();
-        match self.db.save_model(&conn, &mut self.model) {
-            Ok(_) => {}
-            Err(e) => logger.error(worker_id, &format!("Failed to save model: {e}")),
-        }
+        Box::new(self.db.save_model(&conn, &mut self.model))
     }
 }

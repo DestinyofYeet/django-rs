@@ -56,7 +56,7 @@ impl Worker {
                                 *current_task.lock().expect("to get lock") = Some(task.get_id());
                             }
                             task.set_state(TaskState::Running);
-                            task.run(id);
+                            let result = task.run(id);
                             task.set_state(TaskState::Done);
                             {
                                 *current_task.lock().expect("to get lock") = None;

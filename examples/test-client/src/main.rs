@@ -21,7 +21,7 @@ use django_rs::{
     },
 };
 use serde::Serialize;
-use std::{sync::LazyLock, thread, time::Duration};
+use std::{any::Any, sync::LazyLock, thread, time::Duration};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
@@ -39,9 +39,11 @@ impl PrintTask {
 }
 
 impl TaskRunnable for PrintTask {
-    fn run(&mut self, logger: LogStrategyType, worker_id: u64) {
+    fn run(&mut self, logger: LogStrategyType, worker_id: u64) -> Box<dyn Any + Sync + Send> {
         thread::sleep(Duration::from_millis(300));
         logger.info(worker_id, "print");
+
+        Box::new(())
     }
 }
 

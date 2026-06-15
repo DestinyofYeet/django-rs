@@ -6,7 +6,10 @@ use crate::{
         search::SearchQuery,
         traits::model::Model,
     },
-    server::{database_strategy::DatabaseStrategy, database_tasks::SaveModelTask},
+    server::{
+        database_strategy::DatabaseStrategy,
+        database_tasks::{GetModelTask, SaveModelTask},
+    },
     tasks::task::TaskState,
 };
 
@@ -136,15 +139,29 @@ pub fn test_save_and_retrieve_task() {
         extra_data: Data::One("weeee".to_string()),
     };
 
-    let task = SaveModelTask::new(db.clone(), model);
+    let save_task = SaveModelTask::new(db.clone(), model);
 
-    let task = task_handler.spawn_task(task);
+    let task = task_handler.spawn_task(save_task);
 
-    // wait for tasks to finish
-    server.shutdown().unwrap();
+    task_handler.wait_until_done(task.clone());
 
     assert_eq!(
         task.lock().expect("to get lock").get_state(),
         TaskState::Done
     );
+
+    let get_task = GetModelTask::<SqliteStrategy, TestModel>::new(
+        db.clone(),
+        SearchQuery::empty().add_constraint(("id", model.id.unwrap())),
+    );
+
+    let task = task_handler.spawn_task(get_task);
+    task_handler.wait_until_done(task.clone());
+
+    assert_eq!(
+        task.lock().expect("to get lock").get_state(),
+        TaskState::Done
+    );
+
+    server.shutdown().unwrap();
 }

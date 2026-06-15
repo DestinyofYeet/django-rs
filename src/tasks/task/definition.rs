@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use uuid::Uuid;
 
 use crate::tasks::{logstrategy::LogStrategyType, taskrunnable::TaskRunnable};
@@ -28,8 +30,8 @@ impl Task {
         }
     }
 
-    pub(crate) fn run(&mut self, worker_id: u64) {
-        self.runnable.run(self.logger.clone(), worker_id);
+    pub(crate) fn run(&mut self, worker_id: u64) -> Box<dyn Any + Send + Sync> {
+        self.runnable.run(self.logger.clone(), worker_id)
     }
 
     #[inline(always)]

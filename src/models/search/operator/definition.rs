@@ -5,7 +5,7 @@ impl MaybeSearchOp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SearchOp {
     EQ,
     NEQ,
