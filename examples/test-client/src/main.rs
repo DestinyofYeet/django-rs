@@ -3,7 +3,7 @@ use clap::Parser;
 use django_rs::{
     django_rs_macro::{FromIter, SaveData},
     models::{
-        ModelIteration,
+        MigrationKind, ModelMigration,
         column::{ColumnType, ColumnValue, CreateColumn, CreateOptions},
         save::SaveModel,
         search::SearchQuery,
@@ -55,19 +55,22 @@ pub struct Group {
 impl Model for Group {
     const TABLE_NAME: &'static str = "groups";
 
-    fn get_migration() -> Vec<ModelIteration> {
-        vec![ModelIteration::Create(vec![
-            CreateColumn::new(
-                "id",
-                ColumnType::Integer,
-                CreateOptions::default().set_primary_key(),
-            ),
-            CreateColumn::new(
-                "name",
-                ColumnType::String,
-                CreateOptions::default().set_non_nullable().set_unique(),
-            ),
-        ])]
+    fn get_migration() -> Vec<ModelMigration> {
+        vec![ModelMigration::new(
+            0,
+            MigrationKind::Create(vec![
+                CreateColumn::new(
+                    "id",
+                    ColumnType::Integer,
+                    CreateOptions::default().set_primary_key(),
+                ),
+                CreateColumn::new(
+                    "name",
+                    ColumnType::String,
+                    CreateOptions::default().set_non_nullable().set_unique(),
+                ),
+            ]),
+        )]
     }
 
     fn get_id(&self) -> Option<i64> {
@@ -103,36 +106,39 @@ pub struct User {
 impl Model for User {
     const TABLE_NAME: &'static str = "Users";
 
-    fn get_migration() -> Vec<ModelIteration> {
-        vec![ModelIteration::Create(vec![
-            CreateColumn::new(
-                "id",
-                ColumnType::Integer,
-                CreateOptions::default().set_primary_key(),
-            ),
-            CreateColumn::new(
-                "username",
-                ColumnType::String,
-                CreateOptions::default().set_non_nullable(),
-            ),
-            CreateColumn::new(
-                "email",
-                ColumnType::String,
-                CreateOptions::default().set_non_nullable(),
-            ),
-            CreateColumn::new(
-                "created",
-                ColumnType::Date,
-                CreateOptions::default().set_non_nullable(),
-            ),
-            CreateColumn::new(
-                "group_id",
-                ColumnType::Integer,
-                CreateOptions::default()
-                    // .set_non_nullable()
-                    .set_foreign_key("groups", "id"),
-            ),
-        ])]
+    fn get_migration() -> Vec<ModelMigration> {
+        vec![ModelMigration::new(
+            0,
+            MigrationKind::Create(vec![
+                CreateColumn::new(
+                    "id",
+                    ColumnType::Integer,
+                    CreateOptions::default().set_primary_key(),
+                ),
+                CreateColumn::new(
+                    "username",
+                    ColumnType::String,
+                    CreateOptions::default().set_non_nullable(),
+                ),
+                CreateColumn::new(
+                    "email",
+                    ColumnType::String,
+                    CreateOptions::default().set_non_nullable(),
+                ),
+                CreateColumn::new(
+                    "created",
+                    ColumnType::Date,
+                    CreateOptions::default().set_non_nullable(),
+                ),
+                CreateColumn::new(
+                    "group_id",
+                    ColumnType::Integer,
+                    CreateOptions::default()
+                        // .set_non_nullable()
+                        .set_foreign_key("groups", "id"),
+                ),
+            ]),
+        )]
     }
 
     fn get_id(&self) -> Option<i64> {
@@ -253,7 +259,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut user = db
         .search_single_model::<User>(
             &conn,
-            SearchQuery::empty().add_constraint(("id", ColumnValue::Integer(1))),
+            SearchQuery::empty().add_constraint(("id", ColumnValue::Integer(user.id.unwrap()))),
         )?
         .unwrap();
 

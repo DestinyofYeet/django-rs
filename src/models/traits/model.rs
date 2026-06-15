@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::models::{
-    ModelIteration,
+    MigrationKind, ModelMigration,
     column::{ColumnType, ModifyColumnOptionsValues},
 };
 
@@ -9,7 +9,7 @@ pub trait Model {
     const TABLE_NAME: &'static str;
 
     /// This function should return the migration path for this Model
-    fn get_migration() -> Vec<ModelIteration>;
+    fn get_migration() -> Vec<ModelMigration>;
 
     /// This function controls wether the model is saved or inserted into the database
     fn get_id(&self) -> Option<i64>;
@@ -23,10 +23,13 @@ pub trait Model {
         let mut past_names = vec![initial_name.to_string()];
         let mut name = Some(String::from(initial_name));
 
-        for migration in Self::get_migration() {
-            match migration {
-                ModelIteration::Create(_) => {}
-                ModelIteration::Modify(modifiers) => {
+        for migration in Self::get_migration()
+            .into_iter()
+            .sorted_by_key(|item| item.ordering)
+        {
+            match migration.kind {
+                MigrationKind::Create(_) => {}
+                MigrationKind::Modify(modifiers) => {
                     for modification in modifiers {
                         if !past_names.contains(&modification.key) {
                             continue;
@@ -55,7 +58,8 @@ pub trait Model {
     /// This function returns all columns and types defined by the get_migration()
     fn get_columns() -> Vec<(String, ColumnType)> {
         let migration = &Self::get_migration()[0];
-        if let ModelIteration::Create(value) = migration {
+
+        if let MigrationKind::Create(value) = &migration.kind {
             return value
                 .iter()
                 .map(|e| (Self::get_latest_column_name(&e.key).unwrap(), e.value))
@@ -66,7 +70,7 @@ pub trait Model {
     }
 
     /// This function is a helper intended for use in Box<dyn ...> situations where T is not available
-    fn self_get_migration(&self) -> Vec<ModelIteration> {
+    fn self_get_migration(&self) -> Vec<ModelMigration> {
         Self::get_migration()
     }
 

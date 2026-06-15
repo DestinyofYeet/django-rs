@@ -11,17 +11,14 @@ use tracing::{debug, error, info, trace};
 
 use crate::{
     models::{
-        ModelIteration,
-        column::{
+        MigrationKind, column::{
             ColumnType, ColumnValue, CreateColumnOptionsValues, CreateOptions,
             CreateTableOptionValues, ModifyColumnOptionsValues,
-        },
-        search::{SearchOptions, SearchOrderByOptions, SearchQuery, SearchSelectOptions},
-        traits::{
+        }, search::{SearchOptions, SearchOrderByOptions, SearchQuery, SearchSelectOptions}, traits::{
             from_iter::{FromIter, FromIterValue},
             model::Model,
             save_data::{SaveData, ValidateSaveData},
-        },
+        }
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError, TransactionOptions},
 };
@@ -81,7 +78,7 @@ impl DatabaseStrategy for SqliteStrategy {
             .transaction()
             .map_err(|e| DatabaseStrategyError::Transaction(e.to_string()))?;
 
-        for (count, migration) in migration_data.iter().enumerate() {
+        for (count, migration) in migration_data.iter().sorted_by_key(|item| item.ordering).enumerate() {
             self.setup_migration_table(&transaction)?;
             if let Some(migration) = self.get_last_migration(&transaction, table_name)?
                 && migration >= count as i64
@@ -93,8 +90,8 @@ impl DatabaseStrategy for SqliteStrategy {
                 continue;
             }
 
-            match migration {
-                ModelIteration::Create(columns) => {
+            match &migration.kind {
+                MigrationKind::Create(columns) => {
                     if count != 0 {
                         return Err(DatabaseStrategyError::MigrateModel(format!(
                             "Can only create a table at the first iteration, not at iteration {count}"
@@ -146,7 +143,7 @@ impl DatabaseStrategy for SqliteStrategy {
 
                     info!("Created table {}", M::TABLE_NAME);
                 }
-                ModelIteration::Modify(columns) => {
+                MigrationKind::Modify(columns) => {
                     for col in columns {
                         let mut sql = format!("ALTER TABLE {table_name}\n");
                         sql += &SqliteStrategy::match_modify_column_options(&col.options, &col.key)

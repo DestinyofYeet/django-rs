@@ -1,9 +1,9 @@
 use django_rs::django_rs_macro::{FromIter, SaveData};
 use django_rs::models::search::SearchQuery;
 use django_rs::models::traits::save_data::SaveData;
+use django_rs::models::{MigrationKind, ModelMigration};
 use django_rs::{
     models::{
-        ModelIteration,
         column::{ColumnType, CreateColumn, CreateOptions},
         traits::model::Model,
     },
@@ -37,18 +37,21 @@ pub struct Test {
 impl Model for Test {
     const TABLE_NAME: &'static str = "test";
 
-    fn get_migration() -> Vec<django_rs::models::ModelIteration> {
-        vec![ModelIteration::Create(vec![
-            CreateColumn::new(
-                "id",
-                ColumnType::Integer,
-                CreateOptions::default().set_primary_key(),
-            ),
-            CreateColumn::new("key", ColumnType::String, CreateOptions::default()),
-            CreateColumn::new("value", ColumnType::Integer, CreateOptions::default()),
-            CreateColumn::new("test_test", ColumnType::Json, CreateOptions::default()),
-            CreateColumn::new("test_enum", ColumnType::Json, CreateOptions::default()),
-        ])]
+    fn get_migration() -> Vec<ModelMigration> {
+        vec![ModelMigration::new(
+            0,
+            MigrationKind::Create(vec![
+                CreateColumn::new(
+                    "id",
+                    ColumnType::Integer,
+                    CreateOptions::default().set_primary_key(),
+                ),
+                CreateColumn::new("key", ColumnType::String, CreateOptions::default()),
+                CreateColumn::new("value", ColumnType::Integer, CreateOptions::default()),
+                CreateColumn::new("test_test", ColumnType::Json, CreateOptions::default()),
+                CreateColumn::new("test_enum", ColumnType::Json, CreateOptions::default()),
+            ]),
+        )]
     }
 
     fn get_id(&self) -> Option<i64> {
