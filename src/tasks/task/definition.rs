@@ -4,7 +4,7 @@ use crate::tasks::{logstrategy::LogStrategyType, taskrunnable::TaskRunnable};
 
 pub type Runnable = Box<dyn TaskRunnable + Sync + Send>;
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TaskState {
     Queued,
     Running,
@@ -28,7 +28,7 @@ impl Task {
         }
     }
 
-    pub fn run(&mut self, worker_id: u64) {
+    pub(crate) fn run(&mut self, worker_id: u64) {
         self.runnable.run(self.logger.clone(), worker_id);
     }
 
@@ -37,7 +37,7 @@ impl Task {
         self.id
     }
 
-    pub fn set_state(&mut self, state: TaskState) {
+    pub(crate) fn set_state(&mut self, state: TaskState) {
         self.state = state;
     }
 
