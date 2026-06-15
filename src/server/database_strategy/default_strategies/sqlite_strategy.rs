@@ -11,14 +11,17 @@ use tracing::{debug, error, info, trace};
 
 use crate::{
     models::{
-        MigrationKind, column::{
+        MigrationKind,
+        column::{
             ColumnType, ColumnValue, CreateColumnOptionsValues, CreateOptions,
             CreateTableOptionValues, ModifyColumnOptionsValues,
-        }, search::{SearchOptions, SearchOrderByOptions, SearchQuery, SearchSelectOptions}, traits::{
+        },
+        search::{SearchOptions, SearchOrderByOptions, SearchQuery, SearchSelectOptions},
+        traits::{
             from_iter::{FromIter, FromIterValue},
             model::Model,
             save_data::{SaveData, ValidateSaveData},
-        }
+        },
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError, TransactionOptions},
 };
@@ -78,7 +81,11 @@ impl DatabaseStrategy for SqliteStrategy {
             .transaction()
             .map_err(|e| DatabaseStrategyError::Transaction(e.to_string()))?;
 
-        for (count, migration) in migration_data.iter().sorted_by_key(|item| item.ordering).enumerate() {
+        for (count, migration) in migration_data
+            .iter()
+            .sorted_by_key(|item| item.ordering)
+            .enumerate()
+        {
             self.setup_migration_table(&transaction)?;
             if let Some(migration) = self.get_last_migration(&transaction, table_name)?
                 && migration >= count as i64

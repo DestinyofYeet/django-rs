@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, Fields, GenericArgument, Ident, parse_macro_input};
 
-use syn::{Type, TypePath, PathArguments};
+use syn::{PathArguments, Type, TypePath};
 
 fn is_option(ty: &Type) -> bool {
     match ty {
@@ -37,7 +37,6 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
     Some(inner_ty)
 }
 
-
 fn prefix_ident(ident: Ident) -> Ident {
     Ident::new(&format!("macro_{ident}"), ident.span())
 }
@@ -52,7 +51,11 @@ pub fn derive_from_iter(input: TokenStream) -> TokenStream {
         let options = fields.named.iter().map(|field| {
             let ty = field.ty.clone();
             let name = field.ident.clone().unwrap();
-            let ty = if is_option(&ty) { option_inner_type(&ty).unwrap().clone() } else { ty };
+            let ty = if is_option(&ty) {
+                option_inner_type(&ty).unwrap().clone()
+            } else {
+                ty
+            };
 
             let prefixed = prefix_ident(name);
             quote!(let mut #prefixed: Option<#ty> = None;)
@@ -79,8 +82,12 @@ pub fn derive_from_iter(input: TokenStream) -> TokenStream {
         let construct_self = fields.named.iter().map(|field| {
             let name = field.ident.clone().unwrap();
 
-            let value = if is_option(&field.ty) { quote!(Some(#name)) } else { quote!(#name) };
-            
+            let value = if is_option(&field.ty) {
+                quote!(Some(#name))
+            } else {
+                quote!(#name)
+            };
+
             quote!(
                 #name: #value
             )
@@ -134,28 +141,28 @@ pub fn derive_from_iter(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(SaveData)]
 pub fn derive_save_data(input: TokenStream) -> TokenStream {
-
     let input = parse_macro_input!(input as DeriveInput);
 
-    if let syn::Data::Struct(ref data) = input.data && let Fields::Named(ref fields) = data.fields {
-
+    if let syn::Data::Struct(ref data) = input.data
+        && let Fields::Named(ref fields) = data.fields
+    {
         let name = input.ident;
         // let name_string = name.to_string();
 
         let save_models = fields.named.iter().map(|field| {
-           let field_name = field.ident.clone().unwrap(); 
-           let field_name_string = field_name.to_string();
+            let field_name = field.ident.clone().unwrap();
+            let field_name_string = field_name.to_string();
 
-           // let value = if is_option(&field.ty) {
-           //     quote!(self.#field_name)
-           // } else {
-           //     quote!(self.#field_name.clone().into())
-           // };
+            // let value = if is_option(&field.ty) {
+            //     quote!(self.#field_name)
+            // } else {
+            //     quote!(self.#field_name.clone().into())
+            // };
 
-           quote!(django_rs::models::save::SaveModel::new(
-               Self::get_latest_column_name(#field_name_string).unwrap(),
-               self.#field_name.to_column().unwrap()
-           ))
+            quote!(django_rs::models::save::SaveModel::new(
+                Self::get_latest_column_name(#field_name_string).unwrap(),
+                self.#field_name.to_column().unwrap()
+            ))
         });
 
         return quote!(
@@ -169,8 +176,8 @@ pub fn derive_save_data(input: TokenStream) -> TokenStream {
                 }
 
             }
-        ).into()
-        
+        )
+        .into();
     }
 
     TokenStream::from(
