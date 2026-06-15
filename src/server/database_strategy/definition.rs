@@ -6,7 +6,6 @@ use crate::models::traits::save_data::SaveData;
 use crate::models::traits::save_data::ValidateSaveData;
 use std::{collections::HashSet, ops::Deref};
 
-use rusqlite::Connection;
 use thiserror::Error;
 
 use crate::models::{

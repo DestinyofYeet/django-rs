@@ -5,7 +5,6 @@ use django_rs::{
     models::{
         MigrationKind, ModelMigration,
         column::{ColumnType, ColumnValue, CreateColumn, CreateOptions},
-        save::SaveModel,
         search::SearchQuery,
         traits::model::Model,
     },
@@ -22,7 +21,7 @@ use django_rs::{
     },
 };
 use serde::Serialize;
-use std::{thread, time::Duration};
+use std::{sync::LazyLock, thread, time::Duration};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
@@ -55,22 +54,26 @@ pub struct Group {
 impl Model for Group {
     const TABLE_NAME: &'static str = "groups";
 
-    fn get_migration() -> Vec<ModelMigration> {
-        vec![ModelMigration::new(
-            0,
-            MigrationKind::Create(vec![
-                CreateColumn::new(
-                    "id",
-                    ColumnType::Integer,
-                    CreateOptions::default().set_primary_key(),
-                ),
-                CreateColumn::new(
-                    "name",
-                    ColumnType::String,
-                    CreateOptions::default().set_non_nullable().set_unique(),
-                ),
-            ]),
-        )]
+    fn get_migration() -> &'static Vec<ModelMigration> {
+        static MIGRATION: LazyLock<Vec<ModelMigration>> = LazyLock::new(|| {
+            vec![ModelMigration::new(
+                0,
+                MigrationKind::Create(vec![
+                    CreateColumn::new(
+                        "id",
+                        ColumnType::Integer,
+                        CreateOptions::default().set_primary_key(),
+                    ),
+                    CreateColumn::new(
+                        "name",
+                        ColumnType::String,
+                        CreateOptions::default().set_non_nullable().set_unique(),
+                    ),
+                ]),
+            )]
+        });
+
+        &MIGRATION
     }
 
     fn get_id(&self) -> Option<i64> {
@@ -106,39 +109,43 @@ pub struct User {
 impl Model for User {
     const TABLE_NAME: &'static str = "Users";
 
-    fn get_migration() -> Vec<ModelMigration> {
-        vec![ModelMigration::new(
-            0,
-            MigrationKind::Create(vec![
-                CreateColumn::new(
-                    "id",
-                    ColumnType::Integer,
-                    CreateOptions::default().set_primary_key(),
-                ),
-                CreateColumn::new(
-                    "username",
-                    ColumnType::String,
-                    CreateOptions::default().set_non_nullable(),
-                ),
-                CreateColumn::new(
-                    "email",
-                    ColumnType::String,
-                    CreateOptions::default().set_non_nullable(),
-                ),
-                CreateColumn::new(
-                    "created",
-                    ColumnType::Date,
-                    CreateOptions::default().set_non_nullable(),
-                ),
-                CreateColumn::new(
-                    "group_id",
-                    ColumnType::Integer,
-                    CreateOptions::default()
-                        // .set_non_nullable()
-                        .set_foreign_key("groups", "id"),
-                ),
-            ]),
-        )]
+    fn get_migration() -> &'static Vec<ModelMigration> {
+        static MIGRATIONS: LazyLock<Vec<ModelMigration>> = LazyLock::new(|| {
+            vec![ModelMigration::new(
+                0,
+                MigrationKind::Create(vec![
+                    CreateColumn::new(
+                        "id",
+                        ColumnType::Integer,
+                        CreateOptions::default().set_primary_key(),
+                    ),
+                    CreateColumn::new(
+                        "username",
+                        ColumnType::String,
+                        CreateOptions::default().set_non_nullable(),
+                    ),
+                    CreateColumn::new(
+                        "email",
+                        ColumnType::String,
+                        CreateOptions::default().set_non_nullable(),
+                    ),
+                    CreateColumn::new(
+                        "created",
+                        ColumnType::Date,
+                        CreateOptions::default().set_non_nullable(),
+                    ),
+                    CreateColumn::new(
+                        "group_id",
+                        ColumnType::Integer,
+                        CreateOptions::default()
+                            // .set_non_nullable()
+                            .set_foreign_key("groups", "id"),
+                    ),
+                ]),
+            )]
+        });
+
+        &MIGRATIONS
     }
 
     fn get_id(&self) -> Option<i64> {

@@ -9,7 +9,7 @@ pub trait Model {
     const TABLE_NAME: &'static str;
 
     /// This function should return the migration path for this Model
-    fn get_migration() -> Vec<ModelMigration>;
+    fn get_migration() -> &'static Vec<ModelMigration>;
 
     /// This function controls wether the model is saved or inserted into the database
     fn get_id(&self) -> Option<i64>;
@@ -24,10 +24,10 @@ pub trait Model {
         let mut name = Some(String::from(initial_name));
 
         for migration in Self::get_migration()
-            .into_iter()
+            .iter()
             .sorted_by_key(|item| item.ordering)
         {
-            match migration.kind {
+            match &migration.kind {
                 MigrationKind::Create(_) => {}
                 MigrationKind::Modify(modifiers) => {
                     for modification in modifiers {
@@ -35,9 +35,9 @@ pub trait Model {
                             continue;
                         }
 
-                        match modification.options {
+                        match &modification.options {
                             ModifyColumnOptionsValues::Rename { to } => {
-                                name = Some(to);
+                                name = Some(to.to_string());
                                 past_names.push(modification.key.clone());
                             }
 
@@ -70,7 +70,7 @@ pub trait Model {
     }
 
     /// This function is a helper intended for use in Box<dyn ...> situations where T is not available
-    fn self_get_migration(&self) -> Vec<ModelMigration> {
+    fn self_get_migration(&self) -> &'static Vec<ModelMigration> {
         Self::get_migration()
     }
 
