@@ -13,7 +13,7 @@ pub enum TaskState {
     Done,
 }
 
-pub struct Task {
+pub(crate) struct Task {
     id: Uuid,
     runnable: Runnable,
     logger: LogStrategyType,
