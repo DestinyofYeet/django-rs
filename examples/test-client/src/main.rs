@@ -9,7 +9,7 @@ use django_rs::{
         traits::model::Model,
     },
     server::{
-        Server,
+        DjangoServer,
         database_strategy::{
             DatabaseStrategy, TransactionOptions, default_strategies::SqliteStrategy,
         },
@@ -17,7 +17,7 @@ use django_rs::{
     },
     tasks::{
         logstrategy::{LogStrategyType, default_strategies::tracing_strategy::TracingStrategy},
-        taskrunnable::TaskRunnable,
+        taskrunnable::{TaskResultable, TaskRunnable},
     },
 };
 use serde::Serialize;
@@ -30,11 +30,12 @@ pub struct Args {
     verbose: u8,
 }
 
+#[derive(Default)]
 pub struct PrintTask {}
 
 impl PrintTask {
-    pub fn new() -> Box<Self> {
-        Box::new(Self {})
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
@@ -45,6 +46,12 @@ impl TaskRunnable for PrintTask {
 
         Box::new(())
     }
+}
+
+impl TaskResultable for PrintTask {
+    type Result = ();
+
+    fn downcast(_result: django_rs::tasks::task::TaskResult) -> Self::Result {}
 }
 
 #[derive(Debug, FromIter, SaveData, Serialize)]
@@ -234,7 +241,7 @@ fn main() -> Result<(), anyhow::Error> {
         .with_env_filter(EnvFilter::new(level))
         .init();
 
-    let server = Server::new(8, TracingStrategy {}, SqliteStrategy::new("tmp/db.sqlite"))?;
+    let server = DjangoServer::new(8, TracingStrategy {}, SqliteStrategy::new("tmp/db.sqlite"))?;
 
     let mut group = Group {
         id: None,
@@ -279,7 +286,7 @@ fn main() -> Result<(), anyhow::Error> {
     let save_task = SaveModelTask::new(db.clone(), user);
 
     let task_handler = server.get_task_handler();
-    task_handler.spawn_task(PrintTask::new());
+    task_handler.spawn_task::<PrintTask>(PrintTask::new())?;
 
     let task = task_handler.spawn_task(save_task);
     db.remove_model::<User>(
@@ -296,7 +303,7 @@ fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn test<D>(server: &Server<D>)
+fn test<D>(server: &DjangoServer<D>)
 where
     D: DatabaseStrategy,
 {

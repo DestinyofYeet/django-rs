@@ -6,7 +6,7 @@ use crate::{
         traits::{from_iter::FromIter, model::Model},
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
-    tasks::taskrunnable::TaskRunnable,
+    tasks::taskrunnable::{TaskResultable, TaskRunnable},
 };
 
 pub struct GetModelTask<'a, D, M>
@@ -24,19 +24,19 @@ where
     D: DatabaseStrategy,
     M: Model,
 {
-    pub fn new(db: Arc<D>, search: SearchQuery) -> Box<Self> {
-        Box::new(Self {
+    pub fn new(db: Arc<D>, search: SearchQuery) -> Self {
+        Self {
             search,
             db,
             _m: PhantomData,
-        })
+        }
     }
 }
 
 impl<'a, D, M> TaskRunnable for GetModelTask<'a, D, M>
 where
     D: DatabaseStrategy,
-    M: Model + FromIter + 'static + Send + Sync,
+    M: Model + FromIter + Send + Sync + 'static,
 {
     fn run(
         &mut self,
@@ -49,18 +49,16 @@ where
 
         Box::new(result)
     }
+}
 
-    // fn downcast<B>(result: Box<dyn Any + Send + Sync>) -> Box<Result<M, DatabaseStrategyError>> {
-    //     let result = result
-    //         .downcast::<Result<M, DatabaseStrategyError>>()
-    //         .unwrap();
+impl<'a, D, M> TaskResultable for GetModelTask<'a, D, M>
+where
+    D: DatabaseStrategy,
+    M: Model + FromIter + 'static,
+{
+    type Result = Result<Option<M>, DatabaseStrategyError>;
 
-    //     result
-    // }
-
-    // fn downcast<Box<Result<MyType, SomeError>>>(result: Box<dyn Any + Send + Sync>) -> Box<Result<MyType, SomeError>> {
-    //     let result = result
-    //         .downcast::<Result<M, DatabaseStrategyError>>()
-    //         .unwrap();
-    // }
+    fn downcast(result: crate::tasks::task::TaskResult) -> Self::Result {
+        *result.downcast().expect("to downcast")
+    }
 }

@@ -5,7 +5,7 @@ use crate::{
     tasks::{logstrategy::LogStrategy, taskhandler::TaskHandler},
 };
 
-pub struct Server<D>
+pub struct DjangoServer<D>
 where
     D: DatabaseStrategy,
 {
@@ -13,7 +13,7 @@ where
     database_strategy: Arc<D>,
 }
 
-impl<D> Server<D>
+impl<D> DjangoServer<D>
 where
     D: DatabaseStrategy,
 {
@@ -23,7 +23,7 @@ where
         database_strategy: D,
     ) -> Result<Self, ServerError> {
         Ok(Self {
-            task_handler: TaskHandler::new(workers, logging_strategy)?,
+            task_handler: TaskHandler::new(workers, Arc::new(logging_strategy)),
             database_strategy: Arc::new(database_strategy),
         })
     }

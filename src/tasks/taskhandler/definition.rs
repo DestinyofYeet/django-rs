@@ -1,28 +1,43 @@
 use std::{
-    sync::mpsc::{self, Receiver, Sender},
+    sync::{
+        Arc, Mutex,
+        mpsc::{self, Sender},
+    },
     thread::{self, JoinHandle},
 };
 
-use tracing::{debug, info};
+use uuid::Uuid;
 
-use crate::tasks::{logstrategy::LogStrategyType, taskhandler::TaskHandlerError, worker::Worker};
-
-struct MainLoopData {
-    recv: Receiver<TaskEvent>,
-    max_workers: u64,
-}
+use crate::tasks::{
+    logstrategy::LogStrategyType, task::Task, taskhandler::main_loop::MainLoopData,
+};
 
 pub(crate) enum TaskEvent {
     Shutdown,
+    ProcessTask(Arc<Mutex<Task>>),
+    TaskDone(Uuid),
+    RegisterSubscriber {
+        for_task: Uuid,
+        subscriber: Sender<TaskSubscriberEvent>,
+    },
+
+    UnregisterSubscriber {
+        for_task: Uuid,
+    },
+}
+
+pub enum TaskSubscriberEvent {
+    CommInit,
+    TaskDone,
 }
 
 pub struct TaskHandler {
-    log_strategy: LogStrategyType,
-    max_workers: u64,
+    pub(super) log_strategy: LogStrategyType,
+    pub(super) max_workers: u64,
 
-    to_handler: Sender<TaskEvent>,
+    pub(super) to_handler: Sender<TaskEvent>,
 
-    handle: JoinHandle<()>,
+    pub(super) handle: JoinHandle<()>,
 }
 
 impl TaskHandler {
@@ -31,6 +46,7 @@ impl TaskHandler {
 
         let data = MainLoopData {
             recv: receiver,
+            sender: sender.clone(),
             max_workers,
         };
 
@@ -47,26 +63,5 @@ impl TaskHandler {
             to_handler: sender,
             handle,
         }
-    }
-
-    pub fn shutdown(self) -> Result<(), TaskHandlerError> {
-        self.to_handler.send(TaskEvent::Shutdown)?;
-        Ok(())
-    }
-
-    fn main_loop(data: MainLoopData) {
-        let mut workers: Vec<Worker> = Vec::with_capacity(data.max_workers as usize);
-
-        for i in 0..data.max_workers {
-            workers.push(Worker::new(i).expect("to create workers"));
-        }
-
-        while let Some(command) = data.recv.iter().next() {
-            match command {
-                TaskEvent::Shutdown => break,
-            }
-        }
-
-        debug!("TaskHandler exited")
     }
 }

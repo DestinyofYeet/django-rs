@@ -10,7 +10,7 @@ use django_rs::{
         traits::model::Model,
     },
     server::{
-        Server,
+        DjangoServer,
         database_strategy::{DatabaseStrategy, default_strategies::SqliteStrategy},
     },
     tasks::logstrategy::default_strategies::tracing_strategy::TracingStrategy,
@@ -139,7 +139,8 @@ impl Model for Test {
 // }
 
 fn main() {
-    let server = Server::new(8, TracingStrategy {}, SqliteStrategy::new("./test.db")).unwrap();
+    let server =
+        DjangoServer::new(8, TracingStrategy {}, SqliteStrategy::new("./test.db")).unwrap();
 
     let db = server.get_database();
     db.migrate_model::<Test>().unwrap();

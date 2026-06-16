@@ -20,7 +20,7 @@ use django_rs_macro::{FromIter, SaveData};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    server::{Server, database_strategy::default_strategies::SqliteStrategy},
+    server::{DjangoServer, database_strategy::default_strategies::SqliteStrategy},
     tasks::logstrategy::default_strategies::tracing_strategy::TracingStrategy,
 };
 
@@ -29,10 +29,10 @@ fn get_test_dir() -> PathBuf {
     tempfile.keep()
 }
 
-fn setup_server() -> Server<SqliteStrategy> {
+fn setup_server() -> DjangoServer<SqliteStrategy> {
     let dir = get_test_dir();
 
-    Server::new(
+    DjangoServer::new(
         1,
         TracingStrategy {},
         SqliteStrategy::new(dir.join("database.db").to_str().unwrap()),
@@ -141,27 +141,24 @@ pub fn test_save_and_retrieve_task() {
 
     let save_task = SaveModelTask::new(db.clone(), model);
 
-    let task = task_handler.spawn_task(save_task);
+    let task = task_handler.spawn_task(save_task).unwrap();
 
-    task_handler.wait_until_done(task.clone());
+    task_handler.wait_until_done(&task).unwrap();
 
-    assert_eq!(
-        task.lock().expect("to get lock").get_state(),
-        TaskState::Done
-    );
+    assert_eq!(task.get_state(), TaskState::Done);
+
+    let result = task.get_result();
 
     let get_task = GetModelTask::<SqliteStrategy, TestModel>::new(
         db.clone(),
-        SearchQuery::empty().add_constraint(("id", model.id.unwrap())),
+        SearchQuery::empty().add_constraint(("id", result.unwrap())),
     );
 
-    let task = task_handler.spawn_task(get_task);
-    task_handler.wait_until_done(task.clone());
+    let task = task_handler.spawn_task(get_task).unwrap();
 
-    assert_eq!(
-        task.lock().expect("to get lock").get_state(),
-        TaskState::Done
-    );
+    task_handler.wait_until_done(&task).unwrap();
+
+    assert_eq!(task.get_state(), TaskState::Done);
 
     server.shutdown().unwrap();
 }

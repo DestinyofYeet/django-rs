@@ -6,8 +6,8 @@ use crate::{
         model::Model,
         save_data::{SaveData, ValidateSaveData},
     },
-    server::database_strategy::DatabaseStrategy,
-    tasks::taskrunnable::TaskRunnable,
+    server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
+    tasks::taskrunnable::{TaskResultable, TaskRunnable},
 };
 
 pub struct SaveModelTask<D, M>
@@ -24,8 +24,8 @@ where
     D: DatabaseStrategy,
     M: Model,
 {
-    pub fn new(db: Arc<D>, model: M) -> Box<Self> {
-        Box::new(Self { db, model })
+    pub fn new(db: Arc<D>, model: M) -> Self {
+        Self { db, model }
     }
 
     pub fn get_model(&self) -> &M {
@@ -36,7 +36,7 @@ where
 impl<D, M> TaskRunnable for SaveModelTask<D, M>
 where
     D: DatabaseStrategy,
-    M: Model + SaveData + FromIter + ValidateSaveData,
+    M: Model + SaveData + FromIter + ValidateSaveData + Send + Sync,
 {
     fn run(
         &mut self,
@@ -44,6 +44,22 @@ where
         worker_id: u64,
     ) -> Box<dyn Any + Send + Sync> {
         let conn = self.db.get_connection();
-        Box::new(self.db.save_model(&conn, &mut self.model))
+        match self.db.save_model(&conn, &mut self.model) {
+            Ok(_) => {}
+            Err(e) => logger.error(worker_id, &format!("Failed to save model: {e}")),
+        };
+        Box::new(self.model.get_id())
+    }
+}
+
+impl<D, M> TaskResultable for SaveModelTask<D, M>
+where
+    D: DatabaseStrategy,
+    M: Model + SaveData + FromIter + ValidateSaveData,
+{
+    type Result = Option<i64>;
+
+    fn downcast(result: crate::tasks::task::TaskResult) -> Self::Result {
+        *result.downcast().expect("to parse result")
     }
 }

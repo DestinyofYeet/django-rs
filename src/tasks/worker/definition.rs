@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 use crate::tasks::{
     task::{Task, TaskState},
+    taskhandler::TaskEvent,
     worker::WorkerError,
 };
 
@@ -29,7 +30,7 @@ pub struct Worker {
 }
 
 impl Worker {
-    pub fn new(id: u64) -> Result<Self, WorkerError> {
+    pub fn new(id: u64, to_handler: Sender<TaskEvent>) -> Result<Self, WorkerError> {
         let (tx, rx): (Sender<WorkerCommand>, Receiver<WorkerCommand>) = mpsc::channel();
 
         tx.send(WorkerCommand::Init)
@@ -57,7 +58,14 @@ impl Worker {
                             }
                             task.set_state(TaskState::Running);
                             let result = task.run(id);
+                            task.set_result(result);
                             task.set_state(TaskState::Done);
+                            match to_handler.send(TaskEvent::TaskDone(task.get_id())) {
+                                Ok(_) => {}
+                                Err(e) => worker_log(&format!(
+                                    "Failed to send message to TaskHandler: {e}"
+                                )),
+                            }
                             {
                                 *current_task.lock().expect("to get lock") = None;
                             }
