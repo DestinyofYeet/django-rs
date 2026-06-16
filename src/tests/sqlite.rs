@@ -11,34 +11,16 @@ use crate::{
         database_tasks::{GetModelTask, SaveModelTask},
     },
     tasks::task::TaskState,
+    tests::setup_sqlite_server,
 };
 
-use std::{path::PathBuf, sync::LazyLock, thread, time::Duration};
+use std::sync::LazyLock;
 
 use chrono::{DateTime, Utc};
 use django_rs_macro::{FromIter, SaveData};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    server::{DjangoServer, database_strategy::default_strategies::SqliteStrategy},
-    tasks::logstrategy::default_strategies::tracing_strategy::TracingStrategy,
-};
-
-fn get_test_dir() -> PathBuf {
-    let tempfile = tempfile::TempDir::new().expect("to get temp dir");
-    tempfile.keep()
-}
-
-fn setup_server() -> DjangoServer<SqliteStrategy> {
-    let dir = get_test_dir();
-
-    DjangoServer::new(
-        1,
-        TracingStrategy {},
-        SqliteStrategy::new(dir.join("database.db").to_str().unwrap()),
-    )
-    .expect("to create server")
-}
+use crate::server::database_strategy::default_strategies::SqliteStrategy;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Data {
@@ -100,7 +82,7 @@ impl Model for TestModel {
 
 #[test]
 pub fn test_save_and_retrieve() {
-    let server = setup_server();
+    let server = setup_sqlite_server();
     let db = server.get_database();
 
     db.migrate_model::<TestModel>().unwrap();
@@ -126,7 +108,7 @@ pub fn test_save_and_retrieve() {
 
 #[test]
 pub fn test_save_and_retrieve_task() {
-    let server = setup_server();
+    let server = setup_sqlite_server();
     let task_handler = server.get_task_handler();
     let db = server.get_database();
 
