@@ -31,7 +31,7 @@ impl Model for MyStruct {
 }
   
 ```
-A new id field has appeared. This id field controls wether the struct should be inserted or updated in the database. When creating a new instance of `MyStruct` set it to NULL. All `MyStruct`s from the Database have the id field set.
+A new id field has appeared. This id field controls wether the struct should be inserted or updated in the database. When creating a new instance of `MyStruct` set it to `None`. All `MyStruct`s from the Database have the id field set.
 
 ```rust
 impl Model for MyStruct {
