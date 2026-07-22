@@ -18,6 +18,7 @@ use django_rs::{
     tasks::{
         logstrategy::{LogStrategyType, default_strategies::tracing_strategy::TracingStrategy},
         taskrunnable::{TaskResultable, TaskRunnable},
+        worker_logger::WorkerLogger,
     },
 };
 use serde::Serialize;
@@ -40,9 +41,9 @@ impl PrintTask {
 }
 
 impl TaskRunnable for PrintTask {
-    fn run(&mut self, logger: LogStrategyType, worker_id: u64) -> Box<dyn Any + Sync + Send> {
+    fn run(&mut self, logger: WorkerLogger) -> Box<dyn Any + Sync + Send> {
         thread::sleep(Duration::from_millis(300));
-        logger.info(worker_id, "print");
+        logger.info("print");
 
         Box::new(())
     }

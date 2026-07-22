@@ -6,7 +6,10 @@ use crate::{
         traits::{from_iter::FromIter, model::Model},
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
-    tasks::taskrunnable::{TaskResultable, TaskRunnable},
+    tasks::{
+        taskrunnable::{TaskResultable, TaskRunnable},
+        worker_logger::WorkerLogger,
+    },
 };
 
 pub struct GetModelTask<'a, D, M>
@@ -38,11 +41,7 @@ where
     D: DatabaseStrategy,
     M: Model + FromIter + Send + Sync + 'static,
 {
-    fn run(
-        &mut self,
-        logger: crate::tasks::logstrategy::LogStrategyType,
-        worker_id: u64,
-    ) -> Box<dyn Any + Send + Sync> {
+    fn run(&mut self, logger: WorkerLogger) -> Box<dyn Any + Send + Sync> {
         let result = self
             .db
             .search_single_model::<M>(&self.db.get_connection(), self.search.clone());

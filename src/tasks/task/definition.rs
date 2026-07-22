@@ -2,7 +2,9 @@ use std::any::Any;
 
 use uuid::Uuid;
 
-use crate::tasks::{logstrategy::LogStrategyType, taskrunnable::TaskRunnable};
+use crate::tasks::{
+    logstrategy::LogStrategyType, taskrunnable::TaskRunnable, worker_logger::WorkerLogger,
+};
 
 pub type Runnable = Box<dyn TaskRunnable + Sync + Send>;
 
@@ -35,7 +37,8 @@ impl Task {
     }
 
     pub(crate) fn run(&mut self, worker_id: u64) -> TaskResult {
-        self.runnable.run(self.logger.clone(), worker_id)
+        let logger = WorkerLogger::new(self.logger.clone(), worker_id);
+        self.runnable.run(logger)
     }
 
     pub(crate) fn set_result(&mut self, result: TaskResult) {

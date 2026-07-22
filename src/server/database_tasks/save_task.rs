@@ -7,7 +7,10 @@ use crate::{
         save_data::{SaveData, ValidateSaveData},
     },
     server::database_strategy::{DatabaseStrategy, DatabaseStrategyError},
-    tasks::taskrunnable::{TaskResultable, TaskRunnable},
+    tasks::{
+        taskrunnable::{TaskResultable, TaskRunnable},
+        worker_logger::WorkerLogger,
+    },
 };
 
 pub struct SaveModelTask<D, M>
@@ -38,15 +41,11 @@ where
     D: DatabaseStrategy,
     M: Model + SaveData + FromIter + ValidateSaveData + Send + Sync,
 {
-    fn run(
-        &mut self,
-        logger: crate::tasks::logstrategy::LogStrategyType,
-        worker_id: u64,
-    ) -> Box<dyn Any + Send + Sync> {
+    fn run(&mut self, logger: WorkerLogger) -> Box<dyn Any + Send + Sync> {
         let conn = self.db.get_connection();
         match self.db.save_model(&conn, &mut self.model) {
             Ok(_) => {}
-            Err(e) => logger.error(worker_id, &format!("Failed to save model: {e}")),
+            Err(e) => logger.error(&format!("Failed to save model: {e}")),
         };
         Box::new(self.model.get_id())
     }

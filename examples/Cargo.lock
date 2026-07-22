@@ -207,6 +207,7 @@ dependencies = [
  "r2d2",
  "r2d2_sqlite",
  "rand",
+ "roxygen",
  "rusqlite",
  "serde",
  "serde_json",
@@ -661,6 +662,17 @@ name = "regex-syntax"
 version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
+
+[[package]]
+name = "roxygen"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b11e62528dc14c3ea67395458ebb97072fba454c99106da93e1e096152e9104b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "rsqlite-vfs"
