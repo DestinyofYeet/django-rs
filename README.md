@@ -40,6 +40,7 @@ impl Model for MyStruct {
 
     // This is the migration path of the Model
     fn get_migration() -> &'static Vec<ModelMigration> {
+        // A LazyLock is needed for `&'static instead Vec<ModelMigration>` of just `Vec<ModelMigration>`, since get_migrations() will get called a lot
         static MIGRATION: LazyLock<Vec<ModelMigration>> = LazyLock::new(|| {
             vec![ModelMigration::new(
                 // This is the ordering. The framework will step through the Migrations in the sorted order.
@@ -77,6 +78,10 @@ impl Model for MyStruct {
 
     fn set_id(&mut self, id: i64) {
         self.id = Some(id);
+    }
+
+    fn get_id_column_name(&self) -> &'static str {
+        "id"
     }
 }
 ```
