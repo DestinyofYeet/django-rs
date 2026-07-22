@@ -67,6 +67,10 @@ impl Model for Test {
     fn set_id(&mut self, id: i64) {
         self.id = Some(id)
     }
+
+    fn get_id_column_name(&self) -> &'static str {
+        "id"
+    }
 }
 
 // impl FromIter for Test {

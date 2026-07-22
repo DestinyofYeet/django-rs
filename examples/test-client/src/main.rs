@@ -92,6 +92,10 @@ impl Model for Group {
     fn set_id(&mut self, id: i64) {
         self.id = Some(id);
     }
+
+    fn get_id_column_name(&self) -> &'static str {
+        "id"
+    }
 }
 
 // impl SaveData for Group {
@@ -163,6 +167,10 @@ impl Model for User {
 
     fn set_id(&mut self, id: i64) {
         self.id = Some(id);
+    }
+
+    fn get_id_column_name(&self) -> &'static str {
+        "id"
     }
 }
 

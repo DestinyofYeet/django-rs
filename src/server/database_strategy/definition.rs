@@ -72,26 +72,6 @@ pub trait DatabaseStrategy: Send + Sync {
     /// This function should migrate a Model to the database.
     fn migrate_model<M: Model>(&self) -> Result<(), DatabaseStrategyError>;
 
-    /// This function should convert the ColumnType to the appropriate Database type.
-    fn match_column_type(value: &ColumnType) -> String;
-
-    /// This function should convert the column part of CreateOptions to the appropriate Database syntax.
-    /// This function should return valid sql
-    fn match_create_column_options(value: &CreateOptions, column_name: &str) -> String;
-    ///
-    /// This function should convert the table part of CreateOptions to the appropriate Database syntax.
-    /// This function should return valid sql
-    fn match_create_table_options(
-        value: &HashSet<CreateTableOptionValues>,
-        column_name: &str,
-    ) -> String;
-
-    /// This function should convert the ModifyColumnOptionsValues into the appropriate Database query.
-    fn match_modify_column_options(value: &ModifyColumnOptionsValues, column_name: &str) -> String;
-
-    /// This function should convert the ColumnValue to the appropriate Database format.
-    fn match_column_value(value: &ColumnValue) -> String;
-
     /// This function should setup the migration table.
     fn setup_migration_table(
         &self,

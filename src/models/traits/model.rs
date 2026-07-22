@@ -14,6 +14,9 @@ pub trait Model {
     /// This function controls wether the model is saved or inserted into the database
     fn get_id(&self) -> Option<i64>;
 
+    /// This function returns the name of the id field
+    fn get_id_column_name(&self) -> &'static str;
+
     /// This function sets the id returned by the database
     fn set_id(&mut self, id: i64);
 

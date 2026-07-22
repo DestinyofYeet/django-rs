@@ -37,6 +37,101 @@ impl SqliteStrategy {
 
         Self { pool }
     }
+
+    fn match_column_type(value: &ColumnType) -> String {
+        (match value {
+            ColumnType::String => "TEXT",
+            ColumnType::Integer => "INTEGER",
+            ColumnType::Float => "REAL",
+            ColumnType::Date => "TEXT",
+            ColumnType::Json => "TEXT",
+            ColumnType::Bool => "INTEGER",
+        })
+        .to_string()
+    }
+
+    fn match_create_column_options(value: &CreateOptions, _column_name: &str) -> String {
+        let mut options = Vec::<String>::new();
+
+        for (_, option) in value.column_options.iter().sorted_by_key(|value| value.0) {
+            match option {
+                CreateColumnOptionsValues::NonNullable => {
+                    options.push("NOT NULL".to_string());
+                }
+                CreateColumnOptionsValues::PrimaryKey => {
+                    options.push("PRIMARY KEY".to_string());
+                }
+                CreateColumnOptionsValues::Default(default) => {
+                    options.push(format!("DEFAULT {default}"));
+                }
+                CreateColumnOptionsValues::Unique => {
+                    options.push("UNIQUE".to_string());
+                }
+                CreateColumnOptionsValues::Check(check) => {
+                    options.push(format!("CHECK({check})"));
+                }
+            }
+        }
+
+        options.join("  ")
+    }
+
+    fn match_modify_column_options(
+        value: &crate::models::column::ModifyColumnOptionsValues,
+        column_name: &str,
+    ) -> String {
+        let mut out = String::new();
+        match value {
+            ModifyColumnOptionsValues::Rename { to } => {
+                out.push_str(&format!("RENAME COLUMN {column_name} TO {to}"));
+            }
+            ModifyColumnOptionsValues::Drop => {
+                out.push_str(&format!("DROP COLUMN {column_name}"));
+            }
+            ModifyColumnOptionsValues::Add {
+                new_type,
+                new_options,
+            } => {
+                out.push_str(&format!(
+                    "ADD COLUMN {column_name} {} {}",
+                    SqliteStrategy::match_column_type(new_type),
+                    SqliteStrategy::match_create_column_options(new_options, column_name)
+                ));
+            }
+        }
+
+        out
+    }
+
+    fn match_column_value(value: &ColumnValue) -> String {
+        match value {
+            ColumnValue::String(value) => value.clone(),
+            ColumnValue::Integer(value) => format!("{value}"),
+            ColumnValue::Float(value) => format!("{value:.4}"),
+            ColumnValue::Date(value) => value.to_rfc3339(),
+            ColumnValue::Json(value) => value.clone(),
+            ColumnValue::Null => "null".to_string(),
+        }
+    }
+
+    fn match_create_table_options(
+        value: &HashSet<CreateTableOptionValues>,
+        column_name: &str,
+    ) -> String {
+        let mut options = Vec::<String>::new();
+
+        for option in value.iter() {
+            match option {
+                CreateTableOptionValues::ForeignKey { table, column } => {
+                    options.push(format!(
+                        "FOREIGN KEY ({column_name}) REFERENCES {table}({column})"
+                    ));
+                }
+            }
+        }
+
+        options.join(",\n")
+    }
 }
 
 impl DatabaseStrategy for SqliteStrategy {
@@ -185,44 +280,6 @@ impl DatabaseStrategy for SqliteStrategy {
             .map_err(|e| DatabaseStrategyError::MigrateModel(e.to_string()))
     }
 
-    fn match_column_type(value: &ColumnType) -> String {
-        (match value {
-            ColumnType::String => "TEXT",
-            ColumnType::Integer => "INTEGER",
-            ColumnType::Float => "REAL",
-            ColumnType::Date => "TEXT",
-            ColumnType::Json => "TEXT",
-            ColumnType::Bool => "INTEGER",
-        })
-        .to_string()
-    }
-
-    fn match_create_column_options(value: &CreateOptions, _column_name: &str) -> String {
-        let mut options = Vec::<String>::new();
-
-        for (_, option) in value.column_options.iter().sorted_by_key(|value| value.0) {
-            match option {
-                CreateColumnOptionsValues::NonNullable => {
-                    options.push("NOT NULL".to_string());
-                }
-                CreateColumnOptionsValues::PrimaryKey => {
-                    options.push("PRIMARY KEY".to_string());
-                }
-                CreateColumnOptionsValues::Default(default) => {
-                    options.push(format!("DEFAULT {default}"));
-                }
-                CreateColumnOptionsValues::Unique => {
-                    options.push("UNIQUE".to_string());
-                }
-                CreateColumnOptionsValues::Check(check) => {
-                    options.push(format!("CHECK({check})"));
-                }
-            }
-        }
-
-        options.join("  ")
-    }
-
     fn setup_migration_table(&self, conn: &Connection) -> Result<(), DatabaseStrategyError> {
         if self.table_exists(conn, "_migrations")? {
             return Ok(());
@@ -273,33 +330,6 @@ impl DatabaseStrategy for SqliteStrategy {
         Ok(result)
     }
 
-    fn match_modify_column_options(
-        value: &crate::models::column::ModifyColumnOptionsValues,
-        column_name: &str,
-    ) -> String {
-        let mut out = String::new();
-        match value {
-            ModifyColumnOptionsValues::Rename { to } => {
-                out.push_str(&format!("RENAME COLUMN {column_name} TO {to}"));
-            }
-            ModifyColumnOptionsValues::Drop => {
-                out.push_str(&format!("DROP COLUMN {column_name}"));
-            }
-            ModifyColumnOptionsValues::Add {
-                new_type,
-                new_options,
-            } => {
-                out.push_str(&format!(
-                    "ADD COLUMN {column_name} {} {}",
-                    SqliteStrategy::match_column_type(new_type),
-                    SqliteStrategy::match_create_column_options(new_options, column_name)
-                ));
-            }
-        }
-
-        out
-    }
-
     fn save_model<T>(&self, conn: &Connection, model: &mut T) -> Result<(), DatabaseStrategyError>
     where
         T: SaveData + Model + FromIter + ValidateSaveData,
@@ -340,10 +370,12 @@ impl DatabaseStrategy for SqliteStrategy {
             })
             .collect_vec();
 
+        let model_id_column = model.get_id_column_name();
+
         if let Some(model_id) = model.get_id() {
             let columns_values = columns_values
                 .into_iter()
-                .filter(|(column, _)| column != "id")
+                .filter(|(column, _)| column != model_id_column)
                 .collect_vec();
 
             sql += &format!("UPDATE {table_name} SET ");
@@ -354,7 +386,7 @@ impl DatabaseStrategy for SqliteStrategy {
                 .map(|(index, (column, _))| format!("{column} = ?{}", index + 1))
                 .join(", ");
 
-            sql += &format!(" WHERE id = {}", model_id);
+            sql += &format!(" WHERE {} = {}", model_id_column, model_id);
 
             trace!("Generated update sql: {sql}");
             conn.execute(
@@ -375,7 +407,7 @@ impl DatabaseStrategy for SqliteStrategy {
                     .join(", ")
             );
 
-            sql += " RETURNING id";
+            sql += &(" RETURNING ".to_string() + model_id_column);
 
             trace!("Generated insert sql: {sql}");
 
@@ -383,7 +415,7 @@ impl DatabaseStrategy for SqliteStrategy {
                 .query_one(
                     &sql,
                     params_from_iter(columns_values.iter().map(|(_, value)| value)),
-                    |e| e.get("id").map(|e: i64| e),
+                    |e| e.get(model_id_column).map(|e: i64| e),
                 )
                 .map_err(|e| DatabaseStrategyError::SaveModel {
                     err: e.to_string(),
@@ -533,12 +565,10 @@ impl DatabaseStrategy for SqliteStrategy {
                         }
                     };
 
-
                     Some(FromIterValue {
                         column_name: column.to_string(),
                         column_value: value,
                         column_type: *column_type
-                        
                     })
 
 
@@ -562,17 +592,6 @@ impl DatabaseStrategy for SqliteStrategy {
         trace!("Found {} results", models.len());
 
         Ok(models)
-    }
-
-    fn match_column_value(value: &ColumnValue) -> String {
-        match value {
-            ColumnValue::String(value) => value.clone(),
-            ColumnValue::Integer(value) => format!("{value}"),
-            ColumnValue::Float(value) => format!("{value:.4}"),
-            ColumnValue::Date(value) => value.to_rfc3339(),
-            ColumnValue::Json(value) => value.clone(),
-            ColumnValue::Null => "null".to_string(),
-        }
     }
 
     fn remove_model<T: Model>(
@@ -610,25 +629,6 @@ impl DatabaseStrategy for SqliteStrategy {
             .map_err(|e| DatabaseStrategyError::DeleteModel(e.to_string()))?;
 
         Ok(())
-    }
-
-    fn match_create_table_options(
-        value: &HashSet<CreateTableOptionValues>,
-        column_name: &str,
-    ) -> String {
-        let mut options = Vec::<String>::new();
-
-        for option in value.iter() {
-            match option {
-                CreateTableOptionValues::ForeignKey { table, column } => {
-                    options.push(format!(
-                        "FOREIGN KEY ({column_name}) REFERENCES {table}({column})"
-                    ));
-                }
-            }
-        }
-
-        options.join(",\n")
     }
 
     fn manage_transaction(

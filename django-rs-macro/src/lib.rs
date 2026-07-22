@@ -66,7 +66,6 @@ pub fn derive_from_iter(input: TokenStream) -> TokenStream {
             let name_string = name.to_string();
 
             let prefixed = prefix_ident(name);
-                
             quote!(
                 String { .. } if matches!(Self::get_latest_column_name(#name_string), Some(col) if col == column_name) => {
                     #prefixed = column_value.from_column(column_type).ok();
@@ -108,10 +107,9 @@ pub fn derive_from_iter(input: TokenStream) -> TokenStream {
                         column_name,
                         column_value,
                         column_type,
-                    } in iter {                        
+                    } in iter {
                         match column_name {
                             #(#fill_options)*
-                            
                             _ => {}
                         }
                     }
