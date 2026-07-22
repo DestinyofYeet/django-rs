@@ -16,7 +16,7 @@ rustPlatform.buildRustPackage {
 
   src = ../.;
 
-  cargoHash = "sha256-kcbqcm35lsPuckE8tD3zDJJAU8hhJvMe3YZaTPMcGzE=";
+  cargoHash = "sha256-aysldp24E+NcC0XWwWp7UwL0swvc4wQ/mvUHPAlKf6s=";
 
   meta = with lib; {
     description = "A program";

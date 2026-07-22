@@ -9,6 +9,8 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{Connection, Transaction, params, params_from_iter};
 use tracing::{debug, error, info, trace};
 
+use roxygen::roxygen;
+
 use crate::{
     models::{
         MigrationKind,
@@ -31,11 +33,28 @@ pub struct SqliteStrategy {
 }
 
 impl SqliteStrategy {
-    pub fn new(path: impl ToString) -> Self {
+    #[roxygen]
+    /// Constructs a new SqliteStrategy from a path
+    pub fn new(
+        /// The path to use
+        path: impl ToString,
+    ) -> Self {
         let manager = SqliteConnectionManager::file(path.to_string());
-        let pool = Pool::new(manager).unwrap();
 
-        Self { pool }
+        Self::init(manager)
+    }
+
+    /// Constructs a new SqliteStrategy using a :memory: database
+    pub fn new_memory() -> Self {
+        let manager = SqliteConnectionManager::memory();
+
+        Self::init(manager)
+    }
+
+    fn init(manager: SqliteConnectionManager) -> Self {
+        Self {
+            pool: Pool::new(manager).unwrap(),
+        }
     }
 
     fn match_column_type(value: &ColumnType) -> String {
