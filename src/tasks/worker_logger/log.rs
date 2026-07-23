@@ -12,4 +12,12 @@ impl WorkerLogger {
     pub fn info(&self, message: &str) {
         self.logger.info(self.worker_id, message);
     }
+
+    pub fn debug(&self, message: &str) {
+        self.logger.debug(self.worker_id, message);
+    }
+
+    pub fn trace(&self, message: &str) {
+        self.logger.trace(self.worker_id, message);
+    }
 }

@@ -44,7 +44,7 @@ impl Worker {
             .name(format!("Worker {id}"))
             .spawn(move || {
                 let worker_log = |text: &str| {
-                    trace!("[Worker {id}] {}", text);
+                    trace!("Worker {id}: {}", text);
                 };
 
                 while let Some(command) = rx.iter().next() {

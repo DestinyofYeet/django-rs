@@ -6,4 +6,6 @@ pub trait LogStrategy {
     fn warn(&self, worker_id: u64, message: &str);
     fn error(&self, worker_id: u64, message: &str);
     fn info(&self, worker_id: u64, message: &str);
+    fn debug(&self, worker_id: u64, message: &str);
+    fn trace(&self, worker_id: u64, message: &str);
 }
