@@ -15,6 +15,7 @@ use crate::tasks::{
 pub(crate) enum TaskEvent {
     Shutdown,
     ProcessTask(Arc<Mutex<Task>>),
+    ProcessLongTask(Arc<Mutex<Task>>),
     TaskDone(Uuid),
     RegisterSubscriber {
         for_task: Uuid,

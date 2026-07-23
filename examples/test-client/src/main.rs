@@ -22,7 +22,12 @@ use django_rs::{
     },
 };
 use serde::Serialize;
-use std::{any::Any, sync::LazyLock, thread, time::Duration};
+use std::{
+    any::Any,
+    sync::{Arc, LazyLock, Mutex},
+    thread,
+    time::Duration,
+};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
@@ -50,6 +55,33 @@ impl TaskRunnable for PrintTask {
 }
 
 impl TaskResultable for PrintTask {
+    type Result = ();
+
+    fn downcast(_result: django_rs::tasks::task::TaskResult) -> Self::Result {}
+}
+
+pub struct LongTask {
+    pub stop: Arc<Mutex<bool>>,
+}
+
+impl TaskRunnable for LongTask {
+    fn run(&mut self, logger: WorkerLogger) -> Box<dyn Any + Send + Sync> {
+        loop {
+            logger.info("long task");
+            thread::sleep(Duration::from_secs(2));
+
+            {
+                if *self.stop.lock().expect("to get lock") {
+                    break;
+                }
+            }
+        }
+
+        Box::new(())
+    }
+}
+
+impl TaskResultable for LongTask {
     type Result = ();
 
     fn downcast(_result: django_rs::tasks::task::TaskResult) -> Self::Result {}
@@ -262,6 +294,13 @@ fn main() -> Result<(), anyhow::Error> {
     let db = server.get_database();
     let conn = db.get_connection();
 
+    let stop = Arc::new(Mutex::new(false));
+
+    println!("Spawning long task");
+    server
+        .get_task_handler()
+        .spawn_task_long_running(LongTask { stop: stop.clone() })?;
+
     if let Some(found_group) = db.search_single_model::<Group>(
         &conn,
         SearchQuery::empty().add_constraint(("name", &group.name)),
@@ -308,6 +347,10 @@ fn main() -> Result<(), anyhow::Error> {
     test(&server);
 
     server.shutdown()?;
+    {
+        println!("Stopping long task");
+        *stop.lock().expect("to get lock") = true;
+    }
 
     Ok(())
 }

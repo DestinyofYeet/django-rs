@@ -41,7 +41,7 @@ where
     D: DatabaseStrategy,
     M: Model + FromIter + Send + Sync + 'static,
 {
-    fn run(&mut self, logger: WorkerLogger) -> Box<dyn Any + Send + Sync> {
+    fn run(&mut self, _logger: WorkerLogger) -> Box<dyn Any + Send + Sync> {
         let result = self
             .db
             .search_single_model::<M>(&self.db.get_connection(), self.search.clone());

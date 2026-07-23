@@ -27,6 +27,8 @@ impl TaskHandler {
 
         let mut subscribers = HashMap::<Uuid, Sender<TaskSubscriberEvent>>::new();
 
+        let mut long_worker_count: u64 = 0;
+
         while let Some(command) = data.recv.iter().next() {
             match command {
                 TaskEvent::Shutdown => {
@@ -112,6 +114,31 @@ impl TaskHandler {
                     if let Some(sender) = subscribers.remove(&for_task) {
                         drop(sender)
                     }
+                }
+                TaskEvent::ProcessLongTask(task) => {
+                    long_worker_count += 1;
+
+                    let worker = match Worker::new(
+                        long_worker_count + data.max_workers,
+                        data.sender.clone(),
+                    ) {
+                        Ok(value) => value,
+                        Err(e) => {
+                            warn!("Failed to spawn long running worker {long_worker_count}: {e}");
+                            return;
+                        }
+                    };
+
+                    match worker.schedule_task(task) {
+                        Ok(_) => {}
+                        Err(e) => error!("Failed to schedule long running task: {e}"),
+                    }
+
+                    // immediately send the stop command. It won't get processed until the task has finished
+                    match worker.stop() {
+                        Ok(_) => {}
+                        Err(e) => error!("Failed to stop long running worker: {e}"),
+                    };
                 }
             }
         }
